@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Read",
+      "Write",
+      "Bash(uv *)",
+      "Bash(pnpm *)",
+      "Bash(cd backend && uv run *)",
+      "Bash(cd frontend && pnpm *)",
+      "Bash(git *)",
+      "Bash(docker *)",
+      "Bash(curl *)",
+      "Bash(cat *)",
+      "Bash(ls *)",
+      "Bash(find *)",
+      "Bash(grep *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(wc *)",
+      "Bash(alembic *)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./backend/.env)",
+      "Read(./backend/.env.*)",
+      "Read(./frontend/.env.local)",
+      "Read(**/*secret*)",
+      "Read(**/*credential*)",
+      "Write(./production.config.*)",
+      "Write(./**/migrations/versions/*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "INPUT=$(cat); CMD=$(echo \"$INPUT\" | jq -r '.command // empty'); [ -z \"$CMD\" ] && exit 0; echo \"$CMD\" | grep -qE 'rm -rf|DROP TABLE|DROP DATABASE|--force push|truncate|DELETE FROM.*WHERE 1|composio.*delete' && { echo '{\"decision\":\"block\",\"reason\":\"Destructive command blocked. Use safer alternatives.\"}' >&2; exit 2; } || exit 0",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ \"$(git branch --show-current 2>/dev/null)\" != \"main\" ] && [ \"$(git branch --show-current 2>/dev/null)\" != \"master\" ] || { echo '{\"decision\":\"block\",\"reason\":\"Cannot edit directly on main. Create a feature branch: git checkout -b feat/your-feature\"}' >&2; exit 2; }",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write(*.py)|Edit(*.py)|MultiEdit(*.py)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd backend && uv run ruff format \"$CLAUDE_TOOL_INPUT_FILE_PATH\" 2>/dev/null; uv run ruff check --fix \"$CLAUDE_TOOL_INPUT_FILE_PATH\" 2>/dev/null || true"
+          }
+        ]
+      },
+      {
+        "matcher": "Write(*.ts)|Write(*.tsx)|Edit(*.ts)|Edit(*.tsx)|MultiEdit(*.ts)|MultiEdit(*.tsx)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd frontend && pnpm biome format --write \"$CLAUDE_TOOL_INPUT_FILE_PATH\" 2>/dev/null || true"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"additionalContext\": \"Branch: '$(git branch --show-current 2>/dev/null || echo detached)' | Last commit: '$(git log --oneline -1 2>/dev/null || echo none)' | Uncommitted: '$(git status --porcelain 2>/dev/null | wc -l | tr -d \" \")' files | Python: '$(python3 --version 2>/dev/null)' | Node: '$(node --version 2>/dev/null)'\"}'"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"$(date '+%Y-%m-%d %H:%M'): session ended on branch $(git branch --show-current 2>/dev/null)\" >> ~/.omni-copilot-work.log",
+            "async": true
+          }
+        ]
+      }
+    ]
+  },
+  "env": {
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "UV_LINK_MODE": "copy"
+  }
+}

@@ -1,0 +1,44 @@
+[project]
+name = "omni-copilot-backend"
+version = "0.1.0"
+description = "Backend foundation for Omni Copilot."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "aiosqlite>=0.20.0,<1.0.0",
+  "composio-langgraph>=0.6.0",
+  "fastapi>=0.115.0,<1.0.0",
+  "httpx>=0.28.0,<0.29.0",
+  "langchain-core>=0.3.0,<0.4.0",
+  "langchain-groq>=0.2.0,<0.3.0",
+  "langgraph>=0.2.0,<0.4.0",
+  "pydantic-settings>=2.6.0,<3.0.0",
+  "sqlalchemy[asyncio]>=2.0.0,<3.0.0",
+  "structlog>=24.0.0,<25.0.0",
+  "uvicorn[standard]>=0.32.0,<0.33.0",
+]
+
+[dependency-groups]
+dev = [
+  "pyright>=1.1.390",
+  "pytest>=8.3.0",
+  "pytest-asyncio>=0.24.0",
+  "ruff>=0.7.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.pyright]
+include = ["app", "tests"]
+pythonVersion = "3.12"
+typeCheckingMode = "basic"

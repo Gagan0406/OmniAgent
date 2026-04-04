@@ -1,0 +1,66 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+.venv/
+venv/
+.uv/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+backend/.env
+backend/.env.*
+frontend/.env.local
+frontend/.env*.local
+
+# Node
+node_modules/
+.next/
+.vercel/
+frontend/dist/
+frontend/build/
+
+# Test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.json
+.vitest/
+
+# Type checking
+.pyright/
+pyrightconfig.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Docker
+*.dockerignore
+
+# Logs
+*.log
+logs/
+
+# Database
+*.db
+*.sqlite3
+
+# Claude Code local files
+CLAUDE.local.md
+.claude/settings.local.json
+
+# Work logs
+~/.omni-copilot-work.log
