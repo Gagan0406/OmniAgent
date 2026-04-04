@@ -8,7 +8,7 @@ At the end of each session, update it with what changed, what passed, and what i
 
 ---
 
-## Current Phase: 1A - Backend Foundation Implemented
+## Current Phase: 1B - ChatGroq Router + Composio Wired
 
 ## Legend
 - [x] Done and tested
@@ -40,7 +40,7 @@ At the end of each session, update it with what changed, what passed, and what i
 | Tool | Status | Notes |
 |------|--------|-------|
 | `tools/__init__.py` (registry) | [x] | Custom tool registry wired |
-| Gmail (Composio) | [ ] | |
+| Gmail (Composio) | [x] | GMAIL_FETCH_EMAILS, SEND, DRAFT wired (needs COMPOSIO_API_KEY) |
 | Google Calendar (Composio) | [ ] | |
 | Notion (Composio) | [ ] | |
 | Slack (Composio) | [ ] | |
