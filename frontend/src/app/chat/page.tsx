@@ -1,16 +1,15 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, Eraser, Zap } from "lucide-react";
-import { useMemo, useState } from "react";
+import { ChevronLeft, ChevronRight, Eraser, LogOut, Zap } from "lucide-react";
+import { signOut, useSession } from "next-auth/react";
+import { useEffect, useMemo, useState } from "react";
 import { ChatWindow } from "@/components/chat/ChatWindow";
 import { InputBar } from "@/components/chat/InputBar";
 import { ServiceSidebar } from "@/components/connections/ServiceSidebar";
 import { Button } from "@/components/ui/button";
 import { useChatStream } from "@/hooks/use-chat-stream";
-
-// Hardcoded for Phase 2 — Phase 3 will derive from NextAuth session
-const USER_ID = "local-dev-user";
+import { registerUser } from "@/lib/api";
 
 /** Animated floating background particles. */
 function Particles() {
@@ -32,33 +31,44 @@ function Particles() {
         <motion.div
           key={p.id}
           className="absolute rounded-full bg-indigo-500/20"
-          style={{
-            left: p.left,
-            bottom: "-10px",
-            width: p.size,
-            height: p.size,
-          }}
+          style={{ left: p.left, bottom: "-10px", width: p.size, height: p.size }}
           animate={{
             y: [0, typeof window !== "undefined" ? -window.innerHeight : -900],
             opacity: [0, 0.6, 0.3, 0],
           }}
-          transition={{
-            duration: p.duration,
-            delay: p.delay,
-            repeat: Infinity,
-            ease: "linear",
-          }}
+          transition={{ duration: p.duration, delay: p.delay, repeat: Infinity, ease: "linear" }}
         />
       ))}
     </div>
   );
 }
 
-/** Main chat interface page. */
-export default function ChatPage() {
+/** Loading screen shown while session is being resolved. */
+function SessionLoading() {
+  return (
+    <div className="flex h-screen items-center justify-center bg-[#050508]">
+      <motion.div
+        animate={{ opacity: [0.3, 1, 0.3] }}
+        transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
+        className="flex items-center gap-2 text-slate-500"
+      >
+        <Zap className="h-4 w-4 text-indigo-500" />
+        <span className="text-sm">Loading…</span>
+      </motion.div>
+    </div>
+  );
+}
+
+/** Inner chat UI — only rendered once userId is known. */
+function ChatInterface({ userId }: { userId: string }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  // Ensure backend has created the Composio entity for this user.
+  useEffect(() => {
+    void registerUser(userId);
+  }, [userId]);
   const { messages, isLoading, isConnected, input, setInput, sendMessage, clearMessages } =
-    useChatStream(USER_ID);
+    useChatStream(userId);
 
   const handleSuggestion = (text: string) => {
     setInput(text);
@@ -75,7 +85,7 @@ export default function ChatPage() {
 
       <Particles />
 
-      {/* ── Sidebar ── */}
+      {/* Sidebar */}
       <AnimatePresence initial={false}>
         {sidebarOpen && (
           <motion.aside
@@ -88,19 +98,18 @@ export default function ChatPage() {
             style={{ backdropFilter: "blur(24px)", background: "rgba(255,255,255,0.03)" }}
           >
             <div className="w-[260px]">
-              <ServiceSidebar userId={USER_ID} />
+              <ServiceSidebar userId={userId} />
             </div>
           </motion.aside>
         )}
       </AnimatePresence>
 
-      {/* ── Main chat area ── */}
+      {/* Main chat area */}
       <div className="relative z-10 flex flex-1 flex-col overflow-hidden">
-        {/* Header */}
-        <header className="flex items-center gap-3 border-b border-white/6 px-4 py-3"
+        <header
+          className="flex items-center gap-3 border-b border-white/6 px-4 py-3"
           style={{ backdropFilter: "blur(16px)", background: "rgba(255,255,255,0.02)" }}
         >
-          {/* Sidebar toggle */}
           <Button
             variant="icon"
             size="icon"
@@ -114,7 +123,6 @@ export default function ChatPage() {
             )}
           </Button>
 
-          {/* Brand */}
           <div className="flex items-center gap-2">
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-600/30 border border-indigo-500/40">
               <Zap className="h-3.5 w-3.5 text-indigo-400" />
@@ -152,16 +160,21 @@ export default function ChatPage() {
               Clear
             </Button>
           )}
+
+          {/* Sign out */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => signOut({ callbackUrl: "/login" })}
+            title="Sign out"
+            className="text-slate-600 hover:text-slate-400"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+          </Button>
         </header>
 
-        {/* Messages */}
-        <ChatWindow
-          messages={messages}
-          isLoading={isLoading}
-          onSuggestion={handleSuggestion}
-        />
+        <ChatWindow messages={messages} isLoading={isLoading} onSuggestion={handleSuggestion} />
 
-        {/* Input */}
         <InputBar
           value={input}
           onChange={setInput}
@@ -172,4 +185,13 @@ export default function ChatPage() {
       </div>
     </div>
   );
+}
+
+/** Main chat interface page — requires an authenticated session. */
+export default function ChatPage() {
+  const { data: session, status } = useSession({ required: true });
+
+  if (status === "loading") return <SessionLoading />;
+
+  return <ChatInterface userId={session.user.id} />;
 }

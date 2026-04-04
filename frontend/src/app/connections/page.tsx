@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { ArrowLeft, RefreshCw, Zap } from "lucide-react";
+import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { ServiceCard } from "@/components/connections/ServiceCard";
@@ -12,8 +13,6 @@ import {
   initiateConnection,
   type Connection,
 } from "@/lib/api";
-
-const USER_ID = "local-dev-user";
 
 const SERVICE_CATALOG = [
   { app: "gmail", icon: "✉️", name: "Gmail", description: "Read, search, and send emails" },
@@ -26,40 +25,54 @@ const SERVICE_CATALOG = [
 
 /** Full-page connection management screen. */
 export default function ConnectionsPage() {
+  const { data: session, status } = useSession({ required: true });
   const [connections, setConnections] = useState<Connection[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const userId = session?.user?.id ?? "";
+
   const refresh = useCallback(async () => {
+    if (!userId) return;
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchConnections(USER_ID);
+      const data = await fetchConnections(userId);
       setConnections(data.connections);
     } catch {
       setError("Could not load connections. Is the backend running?");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
 
   const handleConnect = async (appName: string) => {
-    const url = await initiateConnection(USER_ID, appName);
+    if (!userId) return;
+    const url = await initiateConnection(userId, appName);
     window.open(url, "_blank", "noopener,noreferrer");
     setTimeout(() => void refresh(), 3000);
   };
 
   const handleDisconnect = async (appName: string) => {
-    await disconnectService(USER_ID, appName);
+    if (!userId) return;
+    await disconnectService(userId, appName);
     await refresh();
   };
 
   const getConnection = (app: string) =>
     connections.find((c) => c.app.toLowerCase() === app);
+
+  if (status === "loading") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#050508]">
+        <span className="text-sm text-slate-500">Loading…</span>
+      </div>
+    );
+  }
 
   return (
     <div className="relative min-h-screen bg-[#050508]">
