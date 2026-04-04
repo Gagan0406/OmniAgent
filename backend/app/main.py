@@ -12,6 +12,7 @@ from app.api.auth import router as auth_router
 from app.api.chat import router as chat_router
 from app.api.connections import router as connections_router
 from app.config import settings
+from app.db.database import create_tables
 from app.logging import configure_logging
 
 configure_logging()
@@ -23,6 +24,8 @@ async def lifespan(app: FastAPI):
     """Log startup and shutdown events."""
 
     logger.info("app_starting", app_name=settings.app_name, environment=settings.app_env)
+    await create_tables()
+    logger.info("db_tables_ready")
     yield
     logger.info("app_stopping", app_name=settings.app_name, environment=settings.app_env)
 

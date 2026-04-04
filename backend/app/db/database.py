@@ -22,3 +22,14 @@ async def get_db_session() -> AsyncIterator[AsyncSession]:
 
     async with SessionLocal() as session:
         yield session
+
+
+async def create_tables() -> None:
+    """Create all ORM tables if they don't exist yet.
+
+    Called once on app startup. Safe to call repeatedly — uses CREATE IF NOT EXISTS.
+    """
+    from app.db.models import Base  # local import avoids circular deps at module level
+
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)

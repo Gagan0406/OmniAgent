@@ -6,7 +6,7 @@ import structlog
 from fastapi import APIRouter
 
 from app.models.user import UserRegisterRequest, UserRegisterResponse
-from app.services.auth import get_or_create_entity_id
+from app.services.auth import get_or_create_entity_id, update_user_profile
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -26,6 +26,7 @@ async def register_user(payload: UserRegisterRequest) -> UserRegisterResponse:
         The user's internal ID and their Composio entity ID.
     """
     entity_id = await get_or_create_entity_id(payload.user_id)
+    await update_user_profile(payload.user_id, payload.email, payload.name)
 
     logger.info(
         "user_registered",
