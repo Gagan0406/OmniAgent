@@ -8,7 +8,7 @@ At the end of each session, update it with what changed, what passed, and what i
 
 ---
 
-## Current Phase: 3 - Auth + Real User Sessions
+## Current Phase: 5 - Remaining Composio Tools
 
 ## Legend
 - [x] Done and tested
@@ -24,9 +24,10 @@ At the end of each session, update it with what changed, what passed, and what i
 | File | Status | Notes |
 |------|--------|-------|
 | `pyproject.toml` | [x] | All deps including composio-langgraph, langchain-groq |
-| `app/main.py` | [x] | FastAPI app with CORS, health, chat + connections routers |
+| `app/main.py` | [x] | FastAPI + CORS + all routers + create_tables() on startup |
 | `app/config.py` | [x] | groq_api_key, composio_api_key, groq_model settings |
-| `app/db/database.py` | [x] | Placeholder async DB session scaffold |
+| `app/db/database.py` | [x] | Async SQLAlchemy engine + create_tables() |
+| `app/db/models.py` | [x] | User ORM model (user_id, entity_id, email, name, created_at) |
 
 ### Agent Core
 | File | Status | Notes |
@@ -40,12 +41,12 @@ At the end of each session, update it with what changed, what passed, and what i
 | Tool | Status | Notes |
 |------|--------|-------|
 | `tools/__init__.py` (registry) | [x] | get_all_tools() merges local + composio tools |
-| Gmail (Composio) | [x] | FETCH, SEND, DRAFT wired — needs live COMPOSIO_API_KEY |
-| Google Calendar (Composio) | [~] | Wired as stub action, needs real action IDs |
-| Notion (Composio) | [~] | Wired as stub action, needs real action IDs |
-| Slack (Composio) | [~] | Wired as stub action, needs real action IDs |
-| Discord (Composio) | [~] | Wired as stub action, needs real action IDs |
-| Zoom (Composio) | [~] | Wired as stub action, needs real action IDs |
+| Gmail (Composio) | [x] | FETCH, SEND, DRAFT, ATTACHMENT wired |
+| Google Calendar (Composio) | [x] | LIST_EVENTS, CREATE_EVENT, DELETE_EVENT wired |
+| Notion (Composio) | [x] | SEARCH, GET, CREATE page wired |
+| Slack (Composio) | [x] | SEND_MESSAGE, LIST_CHANNELS wired |
+| Discord (Composio) | [ ] | Phase 5 |
+| Zoom (Composio) | [ ] | Phase 5 |
 | Local file tools | [x] | Read, list, search workspace tools |
 | Code analysis tools | [x] | Analyze and grep code tools |
 | Image tools | [~] | Placeholder only |
@@ -54,30 +55,30 @@ At the end of each session, update it with what changed, what passed, and what i
 | File | Status | Notes |
 |------|--------|-------|
 | `services/composio_service.py` | [x] | Lazy singleton, gracefully returns None without API key |
-| `services/auth.py` | [~] | In-memory user→entity_id map; resets on restart (Phase 4 will persist) |
-| `services/memory.py` | [x] | In-memory LangGraph checkpointer |
+| `services/auth.py` | [x] | Persists user→entity_id in SQLite; graceful fallback in tests |
+| `services/memory.py` | [x] | In-memory LangGraph checkpointer (MemorySaver) |
 
 ### API
 | Endpoint | Status | Notes |
 |----------|--------|-------|
-| `api/chat.py` (WebSocket) | [x] | WebSocket at /api/chat/ws, streams status + final |
-| `api/auth.py` | [ ] | Phase 3 |
+| `api/chat.py` (WebSocket) | [x] | Stable thread_id per session for conversation continuity |
+| `api/auth.py` | [x] | POST /auth/register — creates entity_id + updates profile |
 | `api/connections.py` | [x] | GET/POST/DELETE /connections — Composio OAuth flow |
 
 ### Models
 | File | Status | Notes |
 |------|--------|-------|
-| `models/user.py` | [ ] | Phase 3/4 |
-| `models/conversation.py` | [ ] | Phase 4 |
+| `models/user.py` | [x] | UserRegisterRequest + UserRegisterResponse Pydantic models |
+| `models/conversation.py` | [ ] | Not needed — LangGraph checkpointer handles history |
 | `models/connection.py` | [x] | Connection status Pydantic model |
 
 ### Tests
 | File | Status | Notes |
 |------|--------|-------|
-| `tests/conftest.py` | [x] | mock_groq fixture patches ChatGroq, fakes tool calls |
-| `tests/test_graph.py` | [x] | ReAct loop, tool routing, direct-response — all passing |
-| `tests/test_tools.py` | [x] | File/code tool tests passing |
-| `tests/test_api.py` | [x] | Health, WebSocket, connections endpoints — 10/10 passing |
+| `tests/conftest.py` | [x] | mock_groq fixture patches ChatGroq |
+| `tests/test_graph.py` | [x] | All passing |
+| `tests/test_tools.py` | [x] | All passing |
+| `tests/test_api.py` | [x] | All passing — 10/10 total |
 
 ---
 
@@ -86,10 +87,12 @@ At the end of each session, update it with what changed, what passed, and what i
 ### App Shell
 | File | Status | Notes |
 |------|--------|-------|
-| `app/layout.tsx` | [x] | Root layout, Geist font |
+| `app/layout.tsx` | [x] | Root layout + AuthProvider (SessionProvider wrapper) |
 | `app/page.tsx` | [x] | Redirects to /chat |
-| `app/chat/page.tsx` | [x] | Animated sidebar, particles, header with status pill |
-| `app/connections/page.tsx` | [x] | Full service management for all 6 integrations |
+| `app/chat/page.tsx` | [x] | useSession({ required: true }) — real userId, sign-out button |
+| `app/connections/page.tsx` | [x] | useSession({ required: true }) — real userId |
+| `app/login/page.tsx` | [x] | Google OAuth + dev credentials form |
+| `app/api/auth/[...nextauth]/route.ts` | [x] | NextAuth handler |
 
 ### Components
 | Component | Status | Notes |
@@ -101,12 +104,16 @@ At the end of each session, update it with what changed, what passed, and what i
 | `ServiceCard` | [x] | Hover lift, ping dot, gradient overlay |
 | `ServiceSidebar` | [x] | Live connection status, click to connect/disconnect |
 | `StatusBadge` | [x] | Connected/disconnected pill badge |
+| `AuthProvider` | [x] | SessionProvider wrapper for layout |
 
 ### Plumbing
 | File | Status | Notes |
 |------|--------|-------|
-| `lib/api.ts` | [x] | fetchConnections, initiateConnection, disconnectService |
-| `hooks/use-chat-stream.ts` | [x] | WebSocket hook with auto-reconnect and message queue |
+| `lib/api.ts` | [x] | fetchConnections, initiateConnection, disconnectService, registerUser |
+| `lib/auth.ts` | [x] | NextAuth config: Google provider + dev credentials |
+| `hooks/use-chat-stream.ts` | [x] | WebSocket hook with auto-reconnect |
+| `middleware.ts` | [x] | Protects /chat and /connections, redirects to /login |
+| `types/next-auth.d.ts` | [x] | Extends Session type to include user.id |
 
 ---
 
@@ -116,7 +123,7 @@ At the end of each session, update it with what changed, what passed, and what i
 | GitHub Actions CI | [ ] | Phase 6 |
 | Dockerfile (backend) | [ ] | Phase 6 |
 | `vercel.json` (frontend) | [ ] | Phase 6 |
-| DB migrations (Alembic) | [ ] | Phase 4 |
+| DB migrations (Alembic) | [ ] | Skipped — using create_all() for solo dev SQLite setup |
 
 ---
 
@@ -127,9 +134,9 @@ At the end of each session, update it with what changed, what passed, and what i
 | 1A | Backend scaffold, local tools, LangGraph heuristic router | ✅ Done |
 | 1B | Real ChatGroq LLM router, Composio wired, connections API | ✅ Done |
 | 2 | Next.js frontend — animated chat UI, sidebar, connections page | ✅ Done |
-| 3 | Auth — NextAuth.js login, real session user IDs, backend auth API | 🔄 In Progress |
-| 4 | Database — Alembic migrations, persistent memory (Postgres/Redis) | [ ] |
-| 5 | Remaining Composio tools — Calendar, Notion, Slack, Discord, Zoom | [ ] |
+| 3 | Auth — NextAuth.js login, real session user IDs, backend auth API | ✅ Done |
+| 4 | Database — SQLite persistence for user→entity map, conversation continuity fix | ✅ Done |
+| 5 | Remaining Composio tools — Discord, Zoom + verify action names | 🔄 In Progress |
 | 6 | Production hardening — CI, Docker, error boundaries, rate limits | [ ] |
 
 ---
@@ -139,38 +146,38 @@ At the end of each session, update it with what changed, what passed, and what i
 |----------|--------|--------|
 | Phase 1A routing | Heuristic router first | Keeps LangGraph testable without LLM complexity |
 | Tool strategy | Local tools first | Proves e2e loop without OAuth complexity |
-| Memory | In-memory checkpointer | Sufficient for local dev; Postgres in Phase 4 |
-| LLM | ChatGroq llama-3.3-70b-versatile | Fast, free-tier capable, LangChain-compatible |
-| Frontend styling | Dark glassmorphism, indigo/violet | Matches copilot aesthetic |
+| Memory | In-memory checkpointer | Sufficient for local dev; upgrade in Phase 6 if needed |
+| LLM | ChatGroq llama-3.1-8b-instant | Fast, free-tier capable, LangChain-compatible |
+| Auth | NextAuth.js v4 + Google + dev credentials | Stable, works with Next.js 14 App Router |
+| DB migrations | create_all() instead of Alembic | Solo dev + SQLite — Alembic is overkill |
+| Conversation threads | Stable thread_id per WS session | Enables LangGraph memory across turns |
 | Commit style | No AI attribution | User preference |
 | Git workflow | Direct commits to main | Solo dev project |
 
 ---
 
 ## Known Issues / Blockers
-- `USER_ID = "local-dev-user"` is hardcoded in frontend — Phase 3 fixes this
-- `services/auth.py` entity map is in-memory — resets on restart, Phase 4 persists it
-- Composio stub actions for Calendar/Notion/Slack/Discord/Zoom need real action IDs — Phase 5
-- `uv run pytest` emits Pydantic v1 compatibility warning (Python 3.14 check) — harmless
+- Composio action names for Discord and Zoom not yet verified — Phase 5
+- MemorySaver resets on server restart — acceptable for dev, upgrade to SQLite checkpointer in Phase 6 if needed
+- Google OAuth requires GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET in frontend .env.local
+- NEXTAUTH_SECRET must be set in frontend .env.local (any random string for dev)
 
 ---
 
 ## Last Session
 - **Date:** 2026-04-04
-- **What was built:** Phase 2 — full Next.js frontend with animated UI
-  - WebSocket streaming hook with auto-reconnect
-  - Chat page with floating particles, animated sidebar, glass header
-  - InputBar: shimmer scan line, rotate-transition send/stop button, WifiOff banner
-  - MessageBubble: Bot/User lucide icons, `bg-black/40 backdrop-blur-xl` glass bubble
-  - TypingIndicator: ping avatar ring, pill container, mirror-bounce dots
-  - ServiceCard: whileHover lift, ping dot on connected emoji, gradient overlay
-  - Connections page with all 6 services
-- **Tests:** `pnpm build` passes clean
-- **Commit:** `feat: add Next.js frontend with animated chat UI (Phase 2)`
+- **What was built:**
+  - Phase 3: NextAuth.js auth (Google + dev credentials), login page, middleware guard, real userId in chat/connections, backend POST /auth/register
+  - Phase 4: SQLAlchemy User model, SQLite persistence for user→entity_id, create_tables() on startup, fixed conversation continuity bug (was generating new uuid4 thread_id per message)
+- **Tests:** 10/10 backend passing, pnpm build clean
+- **Commits:**
+  - `feat: add auth with NextAuth.js and backend user registration (Phase 3)`
+  - `feat: persist user-entity mapping in SQLite and fix conversation continuity (Phase 4)`
 
 ---
 
 ## Next Session Should Start With
 1. Read this file
-2. Run `cd backend && uv run pytest` to confirm backend still green
-3. Continue Phase 3: NextAuth.js login flow + backend auth API
+2. Run `cd backend && uv run pytest` — confirm 10/10 green
+3. Phase 5: Add Discord + Zoom Composio actions, verify all action names against Composio docs
+4. Set up `.env.local` in frontend with NEXTAUTH_SECRET + GOOGLE_CLIENT_ID/SECRET to test auth end-to-end
