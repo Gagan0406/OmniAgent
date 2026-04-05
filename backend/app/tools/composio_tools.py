@@ -1,4 +1,4 @@
-"""Composio-backed tools for SaaS integrations (Gmail, Calendar, Notion, Slack)."""
+"""Composio-backed tools for SaaS integrations (Gmail, Calendar, Notion, Slack, Discord, Zoom)."""
 
 from __future__ import annotations
 
@@ -6,12 +6,11 @@ import structlog
 from langchain_core.tools import BaseTool
 
 from app.services.auth import get_or_create_entity_id
-from app.services.composio_service import get_toolset
+from app.services.composio_service import get_composio
 
 logger = structlog.get_logger(__name__)
 
-# Composio action names for each supported service.
-# These are passed to toolset.get_tools() to get LangChain-compatible tool objects.
+# Explicit tool slugs for verified integrations.
 _GMAIL_ACTIONS = [
     "GMAIL_FETCH_EMAILS",
     "GMAIL_SEND_EMAIL",
@@ -36,20 +35,27 @@ _SLACK_ACTIONS = [
     "SLACK_LIST_ALL_SLACK_TEAM_CHANNELS_WITH_VARIOUS_FILTERING_AND_PAGINATION_OPTIONS",
 ]
 
-_ALL_ACTIONS = [
+_NAMED_ACTIONS = [
     *_GMAIL_ACTIONS,
     *_GOOGLE_CALENDAR_ACTIONS,
     *_NOTION_ACTIONS,
     *_SLACK_ACTIONS,
 ]
 
+# Discord + Zoom loaded by toolkit but hard-capped at 3 tools each
+# to avoid blowing the LLM context / token-per-minute limit.
+_PHASE5_TOOLKITS = ["discord", "zoom"]
+_PHASE5_LIMIT = 3
+
 
 async def get_user_tools(user_id: str) -> list[BaseTool]:
     """Return Composio-backed tools scoped to a specific user.
 
-    Returns an empty list when Composio is not configured or the user has
-    not connected any services — the agent degrades gracefully without
-    crashing.
+    Loads named actions for Gmail/Calendar/Notion/Slack, then adds up to
+    3 tools each for Discord and Zoom.  Total is capped well below the
+    free-tier Groq token limit.
+
+    Returns an empty list when Composio is not configured or unavailable.
 
     Args:
         user_id: The internal user ID used to resolve the Composio entity.
@@ -57,19 +63,40 @@ async def get_user_tools(user_id: str) -> list[BaseTool]:
     Returns:
         List of LangChain-compatible tool objects ready to bind to the LLM.
     """
-    toolset = get_toolset()
-    if toolset is None:
+    composio = get_composio()
+    if composio is None:
         return []
 
     entity_id = await get_or_create_entity_id(user_id)
 
+    tools: list[BaseTool] = []
+
+    # --- Named / verified actions ----------------------------------------
     try:
-        tools: list[BaseTool] = toolset.get_tools(
-            actions=_ALL_ACTIONS,
-            entity_id=entity_id,
+        named: list[BaseTool] = composio.tools.get(
+            user_id=entity_id,
+            tools=_NAMED_ACTIONS,
         )
-        logger.info("composio_tools_loaded", user_id=user_id, count=len(tools))
-        return tools
+        tools.extend(named)
     except Exception as exc:  # noqa: BLE001
-        logger.warning("composio_tools_unavailable", user_id=user_id, error=str(exc))
-        return []
+        logger.warning("composio_named_tools_unavailable", user_id=user_id, error=str(exc))
+
+    # --- Phase-5 toolkits: 3 tools per toolkit ---------------------------
+    for toolkit in _PHASE5_TOOLKITS:
+        try:
+            tk_tools: list[BaseTool] = composio.tools.get(
+                user_id=entity_id,
+                toolkits=[toolkit],
+                limit=_PHASE5_LIMIT,
+            )
+            tools.extend(tk_tools)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "composio_toolkit_unavailable",
+                toolkit=toolkit,
+                user_id=user_id,
+                error=str(exc),
+            )
+
+    logger.info("composio_tools_loaded", user_id=user_id, count=len(tools))
+    return tools

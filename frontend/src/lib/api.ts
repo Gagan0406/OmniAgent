@@ -48,9 +48,14 @@ export async function disconnectService(userId: string, appName: string): Promis
 
 /** Register the signed-in user with the backend to ensure their Composio entity exists. */
 export async function registerUser(userId: string, email?: string, name?: string): Promise<void> {
-  await fetch(`${BACKEND}/api/auth/register`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ user_id: userId, email, name }),
-  });
+  try {
+    await fetch(`${BACKEND}/api/auth/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: userId, email, name }),
+    });
+  } catch {
+    // Backend unreachable — non-fatal, user can still use the UI.
+    console.warn("Backend unreachable: could not register user");
+  }
 }

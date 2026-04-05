@@ -8,7 +8,7 @@ At the end of each session, update it with what changed, what passed, and what i
 
 ---
 
-## Current Phase: 5 - Remaining Composio Tools
+## Current Phase: 6 - Production Hardening
 
 ## Legend
 - [x] Done and tested
@@ -23,7 +23,7 @@ At the end of each session, update it with what changed, what passed, and what i
 ### Foundation
 | File | Status | Notes |
 |------|--------|-------|
-| `pyproject.toml` | [x] | All deps including composio-langgraph, langchain-groq |
+| `pyproject.toml` | [x] | pydantic>=2.12, langchain-core 1.x, langchain-groq 1.x, langgraph 1.x, composio-langgraph<1.0.0 |
 | `app/main.py` | [x] | FastAPI + CORS + all routers + create_tables() on startup |
 | `app/config.py` | [x] | groq_api_key, composio_api_key, groq_model settings |
 | `app/db/database.py` | [x] | Async SQLAlchemy engine + create_tables() |
@@ -45,8 +45,8 @@ At the end of each session, update it with what changed, what passed, and what i
 | Google Calendar (Composio) | [x] | LIST_EVENTS, CREATE_EVENT, DELETE_EVENT wired |
 | Notion (Composio) | [x] | SEARCH, GET, CREATE page wired |
 | Slack (Composio) | [x] | SEND_MESSAGE, LIST_CHANNELS wired |
-| Discord (Composio) | [ ] | Phase 5 |
-| Zoom (Composio) | [ ] | Phase 5 |
+| Discord (Composio) | [x] | Loaded via toolkit, capped at 3 tools to stay within token limits |
+| Zoom (Composio) | [x] | Loaded via toolkit, capped at 3 tools to stay within token limits |
 | Local file tools | [x] | Read, list, search workspace tools |
 | Code analysis tools | [x] | Analyze and grep code tools |
 | Image tools | [~] | Placeholder only |
@@ -54,7 +54,7 @@ At the end of each session, update it with what changed, what passed, and what i
 ### Services
 | File | Status | Notes |
 |------|--------|-------|
-| `services/composio_service.py` | [x] | Lazy singleton, gracefully returns None without API key |
+| `services/composio_service.py` | [x] | Updated to new Composio SDK (Composio + LanggraphProvider) |
 | `services/auth.py` | [x] | Persists user→entity_id in SQLite; graceful fallback in tests |
 | `services/memory.py` | [x] | In-memory LangGraph checkpointer (MemorySaver) |
 
@@ -63,7 +63,7 @@ At the end of each session, update it with what changed, what passed, and what i
 |----------|--------|-------|
 | `api/chat.py` (WebSocket) | [x] | Stable thread_id per session for conversation continuity |
 | `api/auth.py` | [x] | POST /auth/register — creates entity_id + updates profile |
-| `api/connections.py` | [x] | GET/POST/DELETE /connections — Composio OAuth flow |
+| `api/connections.py` | [x] | Auto-creates Composio-managed auth config if missing; new SDK API |
 
 ### Models
 | File | Status | Notes |
@@ -109,7 +109,7 @@ At the end of each session, update it with what changed, what passed, and what i
 ### Plumbing
 | File | Status | Notes |
 |------|--------|-------|
-| `lib/api.ts` | [x] | fetchConnections, initiateConnection, disconnectService, registerUser |
+| `lib/api.ts` | [x] | registerUser now fails silently if backend unreachable |
 | `lib/auth.ts` | [x] | NextAuth config: Google provider + dev credentials |
 | `hooks/use-chat-stream.ts` | [x] | WebSocket hook with auto-reconnect |
 | `middleware.ts` | [x] | Protects /chat and /connections, redirects to /login |
@@ -120,6 +120,7 @@ At the end of each session, update it with what changed, what passed, and what i
 ## Infrastructure
 | Item | Status | Notes |
 |------|--------|-------|
+| GitHub repo | [x] | Gagan0406/OmniAgent |
 | GitHub Actions CI | [ ] | Phase 6 |
 | Dockerfile (backend) | [ ] | Phase 6 |
 | `vercel.json` (frontend) | [ ] | Phase 6 |
@@ -136,8 +137,8 @@ At the end of each session, update it with what changed, what passed, and what i
 | 2 | Next.js frontend — animated chat UI, sidebar, connections page | ✅ Done |
 | 3 | Auth — NextAuth.js login, real session user IDs, backend auth API | ✅ Done |
 | 4 | Database — SQLite persistence for user→entity map, conversation continuity fix | ✅ Done |
-| 5 | Remaining Composio tools — Discord, Zoom + verify action names | 🔄 In Progress |
-| 6 | Production hardening — CI, Docker, error boundaries, rate limits | [ ] |
+| 5 | Remaining Composio tools — Discord, Zoom + Composio SDK migration to v1 | ✅ Done |
+| 6 | Production hardening — CI, Docker, error boundaries, rate limits | 🔄 In Progress |
 
 ---
 
@@ -147,37 +148,44 @@ At the end of each session, update it with what changed, what passed, and what i
 | Phase 1A routing | Heuristic router first | Keeps LangGraph testable without LLM complexity |
 | Tool strategy | Local tools first | Proves e2e loop without OAuth complexity |
 | Memory | In-memory checkpointer | Sufficient for local dev; upgrade in Phase 6 if needed |
-| LLM | ChatGroq llama-3.1-8b-instant | Fast, free-tier capable, LangChain-compatible |
+| LLM | ChatGroq llama-3.3-70b-versatile | Higher token limits than 8b-instant |
 | Auth | NextAuth.js v4 + Google + dev credentials | Stable, works with Next.js 14 App Router |
 | DB migrations | create_all() instead of Alembic | Solo dev + SQLite — Alembic is overkill |
 | Conversation threads | Stable thread_id per WS session | Enables LangGraph memory across turns |
-| Commit style | No AI attribution | User preference |
-| Git workflow | Direct commits to main | Solo dev project |
+| Pydantic | >=2.12 | Python 3.14 compatible |
+| Composio SDK | composio-langgraph 0.11.4 (new Composio+LanggraphProvider API) | Old ComposioToolSet removed in v0.11+ |
+| Discord/Zoom tools | toolkit-based loading, limit=3 each | Prevents 413 token overflow on Groq free tier |
+| Composio connections | Auto-create managed auth config if missing | Removes need for manual dashboard setup |
 
 ---
 
 ## Known Issues / Blockers
-- Composio action names for Discord and Zoom not yet verified — Phase 5
+- Discord/Zoom tool slugs loaded by toolkit (top 3 by relevance) — pin specific slugs after live verification
 - MemorySaver resets on server restart — acceptable for dev, upgrade to SQLite checkpointer in Phase 6 if needed
 - Google OAuth requires GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET in frontend .env.local
-- NEXTAUTH_SECRET must be set in frontend .env.local (any random string for dev)
+- NEXTAUTH_SECRET must be set in frontend .env.local
+- Groq free tier: 6K TPM limit — set GROQ_MODEL=llama-3.3-70b-versatile and keep tool count low
 
 ---
 
 ## Last Session
-- **Date:** 2026-04-04
+- **Date:** 2026-04-05
 - **What was built:**
-  - Phase 3: NextAuth.js auth (Google + dev credentials), login page, middleware guard, real userId in chat/connections, backend POST /auth/register
-  - Phase 4: SQLAlchemy User model, SQLite persistence for user→entity_id, create_tables() on startup, fixed conversation continuity bug (was generating new uuid4 thread_id per message)
-- **Tests:** 10/10 backend passing, pnpm build clean
-- **Commits:**
-  - `feat: add auth with NextAuth.js and backend user registration (Phase 3)`
-  - `feat: persist user-entity mapping in SQLite and fix conversation continuity (Phase 4)`
+  - Phase 5: Migrated Composio SDK from old ComposioToolSet API to new Composio+LanggraphProvider API
+  - Added Discord + Zoom via toolkit-based loading (capped at 3 tools each)
+  - Fixed connections API: auto-creates Composio-managed auth config when none exists
+  - Fixed 413 token overflow: separated named vs toolkit tool loading with per-toolkit limit
+  - Upgraded pydantic to >=2.12, langchain-core/groq/langgraph to 1.x for Python 3.14 compatibility
+  - Fixed registerUser failing loudly when backend unreachable
+  - Pushed to GitHub: Gagan0406/OmniAgent
+- **Tests:** 10/10 backend passing
+- **Commits:** feat: complete Phase 5 — Composio SDK migration, Discord/Zoom tools, Python 3.14 deps
 
 ---
 
 ## Next Session Should Start With
 1. Read this file
 2. Run `cd backend && uv run pytest` — confirm 10/10 green
-3. Phase 5: Add Discord + Zoom Composio actions, verify all action names against Composio docs
-4. Set up `.env.local` in frontend with NEXTAUTH_SECRET + GOOGLE_CLIENT_ID/SECRET to test auth end-to-end
+3. Phase 6: GitHub Actions CI (lint + test + build), Dockerfile for backend, vercel.json for frontend
+4. Phase 6: Add error boundaries in frontend, exponential backoff for Groq rate limits in nodes.py
+5. Consider upgrading Groq to dev tier or switching to a model with higher TPM

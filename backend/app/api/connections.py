@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
 from app.services.auth import get_or_create_entity_id
-from app.services.composio_service import get_toolset
+from app.services.composio_service import get_composio
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/connections", tags=["connections"])
@@ -42,25 +42,23 @@ async def list_connections(
     """Return all service connections for a user.
 
     Args:
-        user_id: The internal user ID (passed as a query param for now;
-                 Phase 2 will derive this from the JWT session).
+        user_id: The internal user ID (passed as a query param).
     """
-    toolset = get_toolset()
-    if toolset is None:
+    composio = get_composio()
+    if composio is None:
         return ConnectionsResponse(user_id=user_id, connections=[])
 
     entity_id = await get_or_create_entity_id(user_id)
 
     try:
-        entity = toolset.get_entity(entity_id)
-        raw_connections = entity.get_connections()
+        result = composio.connected_accounts.list(user_ids=[entity_id])
         connections = [
             ConnectionStatus(
-                app=conn.appName,
+                app=conn.toolkit.slug,
                 connected=conn.status == "ACTIVE",
                 status=conn.status,
             )
-            for conn in raw_connections
+            for conn in result.items
         ]
     except Exception as exc:  # noqa: BLE001
         logger.warning("list_connections_failed", user_id=user_id, error=str(exc))
@@ -76,14 +74,15 @@ async def initiate_connection(
 ) -> InitiateConnectionResponse:
     """Start an OAuth flow for a service.
 
-    Returns a redirect URL that the frontend should send the user to.
+    Looks up the default Composio-managed auth config for the given app,
+    then returns a redirect URL the frontend should send the user to.
 
     Args:
-        app_name: Composio app identifier e.g. "gmail", "notion", "slack".
+        app_name: Composio toolkit slug e.g. "gmail", "notion", "slack".
         user_id: The internal user ID.
     """
-    toolset = get_toolset()
-    if toolset is None:
+    composio = get_composio()
+    if composio is None:
         raise HTTPException(
             status_code=503,
             detail="Composio is not configured. Set COMPOSIO_API_KEY to enable integrations.",
@@ -92,9 +91,25 @@ async def initiate_connection(
     entity_id = await get_or_create_entity_id(user_id)
 
     try:
-        entity = toolset.get_entity(entity_id)
-        connection_request = entity.initiate_connection(app_name=app_name)
-        redirect_url: str = connection_request.redirectUrl
+        # Find an existing auth config for this toolkit, or create one on-the-fly
+        # using Composio-managed OAuth credentials (no user setup required).
+        auth_config_response = composio.auth_configs.list(toolkit_slug=app_name)
+        if auth_config_response.items:
+            auth_config_id: str = auth_config_response.items[0].id
+        else:
+            created = composio.auth_configs.create(
+                toolkit=app_name,
+                options={"type": "use_composio_managed_auth"},
+            )
+            auth_config_id = created.id
+
+        connection_request = composio.connected_accounts.link(
+            user_id=entity_id,
+            auth_config_id=auth_config_id,
+        )
+        redirect_url: str = connection_request.redirect_url or ""
+    except HTTPException:
+        raise
     except Exception as exc:  # noqa: BLE001
         logger.error(
             "initiate_connection_failed",
@@ -119,21 +134,20 @@ async def disconnect(
     """Disconnect a service for a user.
 
     Args:
-        app_name: Composio app identifier to disconnect.
+        app_name: Composio toolkit slug to disconnect.
         user_id: The internal user ID.
     """
-    toolset = get_toolset()
-    if toolset is None:
+    composio = get_composio()
+    if composio is None:
         raise HTTPException(status_code=503, detail="Composio is not configured.")
 
     entity_id = await get_or_create_entity_id(user_id)
 
     try:
-        entity = toolset.get_entity(entity_id)
-        connections = entity.get_connections()
-        target = next((c for c in connections if c.appName == app_name), None)
+        result = composio.connected_accounts.list(user_ids=[entity_id])
+        target = next((c for c in result.items if c.toolkit.slug == app_name), None)
         if target:
-            target.delete()
+            composio.connected_accounts.delete(target.id)
             logger.info("connection_deleted", app=app_name, user_id=user_id)
     except Exception as exc:  # noqa: BLE001
         logger.error("disconnect_failed", app=app_name, user_id=user_id, error=str(exc))
