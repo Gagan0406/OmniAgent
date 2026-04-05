@@ -3,13 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 
 from langchain_core.tools import tool
 
-from app.config import settings
-from app.tools.file_tools import MAX_TOOL_OUTPUT_CHARS, _resolve_workspace_path
-
 CODE_FILE_EXTENSIONS = {".py", ".ts", ".tsx", ".js", ".jsx", ".md"}
+MAX_TOOL_OUTPUT_CHARS = 10_000
 
 
 @tool
@@ -18,14 +17,13 @@ async def grep_workspace_code(pattern: str, directory: str = ".") -> str:
 
     Args:
         pattern: Plain-text text to search for.
-        directory: Relative directory within the workspace to search.
+        directory: Directory to search.
     """
 
-    search_root = _resolve_workspace_path(directory)
-    workspace_root = settings.workspace_root.resolve()
     lowered_pattern = pattern.lower()
+    search_root = Path(directory).resolve()
 
-    def _grep() -> list[str]:
+    def _grep_files() -> list[str]:
         matches: list[str] = []
         for path in search_root.rglob("*"):
             if not path.is_file() or path.suffix.lower() not in CODE_FILE_EXTENSIONS:
@@ -38,12 +36,13 @@ async def grep_workspace_code(pattern: str, directory: str = ".") -> str:
 
             for line_number, line in enumerate(content.splitlines(), start=1):
                 if lowered_pattern in line.lower():
-                    relative_path = path.relative_to(workspace_root)
+                    relative_path = path.relative_to(search_root)
                     matches.append(f"{relative_path}:{line_number}: {line.strip()}")
 
         return matches
 
-    matches = await asyncio.to_thread(_grep)
+    matches = await asyncio.to_thread(_grep_files)
+
     if not matches:
         return f"No code matches found for pattern: {pattern}"
 

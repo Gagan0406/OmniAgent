@@ -28,5 +28,11 @@ async def get_all_tools(user_id: str) -> Sequence[BaseTool]:
         per-user Composio tool lookup.
     """
 
+    # Create tool instances with user workspace context
+    workspace_tools = []
+    for tool in CUSTOM_TOOLS:
+        # This tool doesn't need user_workspaces (like composio tools)
+        workspace_tools.append(tool)
+
     composio_tools = await get_composio_user_tools(user_id)
-    return [*CUSTOM_TOOLS, *composio_tools]
+    return [*workspace_tools, *composio_tools]

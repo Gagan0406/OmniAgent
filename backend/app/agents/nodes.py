@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import structlog
+from groq import BadRequestError
 from langchain_core.messages import BaseMessage, SystemMessage, ToolMessage
 from langchain_groq import ChatGroq
 
@@ -19,23 +20,32 @@ def _prepend_system(messages: list[BaseMessage]) -> list[BaseMessage]:
     return [SystemMessage(content=SYSTEM_PROMPT), *messages]
 
 
+def _make_llm() -> ChatGroq:
+    return ChatGroq(model=settings.groq_model, api_key=settings.groq_api_key, temperature=0)
+
+
 async def router(state: AgentState) -> dict[str, object]:
     """Call the LLM with bound tools and decide what to do next.
 
-    Returns an AIMessage. If the message has tool_calls, the graph routes
-    to tool_executor. Otherwise it routes to END and the AIMessage is the
-    final response.
+    If Groq rejects the tool call (malformed JSON or schema mismatch),
+    falls back to a plain LLM call so the user always gets a response.
     """
     user_id = state.get("user_id", "anonymous")
+
     tools = await get_all_tools(user_id)
 
-    llm = ChatGroq(
-        model=settings.groq_model,
-        api_key=settings.groq_api_key,
-        temperature=0,
-    ).bind_tools(tools)
+    llm = _make_llm().bind_tools(tools) if tools else _make_llm()
 
-    response = await llm.ainvoke(_prepend_system(state.get("messages", [])))
+    messages = _prepend_system(state["messages"])
+
+    try:
+        response = await llm.ainvoke(messages)
+    except BadRequestError as exc:
+        if "tool_use_failed" in str(exc):
+            logger.warning("tool_use_failed_fallback", user_id=user_id, error=str(exc))
+            response = await _make_llm().ainvoke(messages)
+        else:
+            raise
 
     logger.info(
         "router_response",
