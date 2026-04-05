@@ -3,14 +3,21 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronLeft, ChevronRight, Eraser, LogOut, Zap } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { ChatHistory } from "@/components/chat/ChatHistory";
 import { ChatWindow } from "@/components/chat/ChatWindow";
 import { InputBar } from "@/components/chat/InputBar";
 import { ServiceSidebar } from "@/components/connections/ServiceSidebar";
 import { Button } from "@/components/ui/button";
 import { useChatStream } from "@/hooks/use-chat-stream";
-import { registerUser } from "@/lib/api";
+import type { Message } from "@/hooks/use-chat-stream";
+import {
+  fetchChatHistory,
+  fetchThreadMessages,
+  registerUser,
+  type ConversationSummary,
+} from "@/lib/api";
 
 /** Animated floating background particles. */
 function Particles() {
@@ -63,17 +70,89 @@ function SessionLoading() {
 /** Inner chat UI — only rendered once userId is known. */
 function ChatInterface({ userId }: { userId: string }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
+  const [conversations, setConversations] = useState<ConversationSummary[]>([]);
 
-  // Ensure backend has created the Composio entity for this user.
+  // Register user + fetch history on mount.
   useEffect(() => {
     void registerUser(userId);
+    fetchChatHistory(userId).then(setConversations).catch(() => {});
   }, [userId]);
-  const { messages, isLoading, isConnected, input, setInput, sendMessage, clearMessages } =
-    useChatStream(userId);
+
+  // Called by the hook when the first message of a brand-new thread is sent.
+  const handleFirstMessage = useCallback(
+    (threadId: string, text: string) => {
+      const entry: ConversationSummary = {
+        id: threadId,
+        title: text.slice(0, 50),
+        updated_at: new Date().toISOString(),
+      };
+      setConversations((prev) => [entry, ...prev.filter((c) => c.id !== threadId)]);
+      setActiveThreadId(threadId);
+    },
+    [],
+  );
+
+  const {
+    messages,
+    isLoading,
+    isConnected,
+    input,
+    setInput,
+    sendMessage,
+    clearMessages,
+    currentThreadId,
+    resetSession,
+  } = useChatStream(userId, { onFirstMessage: handleFirstMessage });
 
   const handleSuggestion = (text: string) => {
     setInput(text);
     sendMessage(text);
+  };
+
+  const handleSelectThread = async (threadId: string) => {
+    if (threadId === activeThreadId) return;
+    setActiveThreadId(threadId);
+    // Fetch past messages so the user sees the full conversation.
+    let past: Message[] = [];
+    try {
+      const records = await fetchThreadMessages(userId, threadId);
+      past = records.map((r) => ({
+        id: r.id,
+        role: r.role as "user" | "assistant",
+        content: r.content,
+        timestamp: new Date(r.created_at),
+      }));
+    } catch {
+      // Agent still has LangGraph state even if message fetch fails.
+    }
+    resetSession(threadId, past);
+    // Bump this thread to the top of the list.
+    setConversations((prev) => {
+      const found = prev.find((c) => c.id === threadId);
+      if (!found) return prev;
+      return [{ ...found, updated_at: new Date().toISOString() }, ...prev.filter((c) => c.id !== threadId)];
+    });
+  };
+
+  const handleNewChat = () => {
+    setActiveThreadId(null);
+    resetSession(null);
+  };
+
+  const handleDeleteConversation = (threadId: string) => {
+    setConversations((prev) => prev.filter((c) => c.id !== threadId));
+    // If we just deleted the active thread, start a new chat.
+    if (activeThreadId === threadId) {
+      setActiveThreadId(null);
+      resetSession(null);
+    }
+  };
+
+  const handleRenameConversation = (threadId: string, newTitle: string) => {
+    setConversations((prev) =>
+      prev.map((c) => (c.id === threadId ? { ...c, title: newTitle } : c)),
+    );
   };
 
   return (
@@ -98,8 +177,21 @@ function ChatInterface({ userId }: { userId: string }) {
             className="relative z-10 shrink-0 overflow-hidden"
             style={{ backdropFilter: "blur(24px)", background: "rgba(255,255,255,0.03)" }}
           >
-            <div className="w-[260px]">
-              <ServiceSidebar userId={userId} />
+            <div className="w-[260px] flex flex-col h-full overflow-hidden">
+              <div className="shrink-0">
+                <ServiceSidebar userId={userId} />
+              </div>
+              <div className="flex-1 overflow-hidden min-h-0">
+                <ChatHistory
+                  userId={userId}
+                  conversations={conversations}
+                  activeThreadId={activeThreadId}
+                  onSelectThread={(id) => void handleSelectThread(id)}
+                  onNewChat={handleNewChat}
+                  onDelete={handleDeleteConversation}
+                  onRename={handleRenameConversation}
+                />
+              </div>
             </div>
           </motion.aside>
         )}
@@ -112,7 +204,7 @@ function ChatInterface({ userId }: { userId: string }) {
           style={{ backdropFilter: "blur(16px)", background: "rgba(255,255,255,0.02)" }}
         >
           <Button
-            variant="icon"
+            variant="ghost"
             size="icon"
             onClick={() => setSidebarOpen((v) => !v)}
             title={sidebarOpen ? "Close sidebar" : "Open sidebar"}

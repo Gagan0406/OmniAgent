@@ -46,6 +46,63 @@ export async function disconnectService(userId: string, appName: string): Promis
   );
 }
 
+export interface ConversationSummary {
+  id: string;
+  title: string;
+  updated_at: string;
+}
+
+/** Fetch the 20 most recent conversation sessions for a user. */
+export async function fetchChatHistory(userId: string): Promise<ConversationSummary[]> {
+  const res = await fetch(
+    `${BACKEND}/api/chat/history?user_id=${encodeURIComponent(userId)}`,
+  );
+  if (!res.ok) throw new Error("Failed to fetch chat history");
+  return res.json() as Promise<ConversationSummary[]>;
+}
+
+export interface MessageRecord {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  created_at: string;
+}
+
+/** Fetch all messages for a conversation thread. */
+export async function fetchThreadMessages(userId: string, threadId: string): Promise<MessageRecord[]> {
+  const res = await fetch(
+    `${BACKEND}/api/chat/history/${encodeURIComponent(threadId)}/messages?user_id=${encodeURIComponent(userId)}`,
+  );
+  if (!res.ok) throw new Error("Failed to fetch messages");
+  return res.json() as Promise<MessageRecord[]>;
+}
+
+/** Delete a conversation from history. */
+export async function deleteConversation(userId: string, threadId: string): Promise<void> {
+  await fetch(
+    `${BACKEND}/api/chat/history/${encodeURIComponent(threadId)}?user_id=${encodeURIComponent(userId)}`,
+    { method: "DELETE" },
+  );
+}
+
+/** Rename a conversation. Returns the updated record. */
+export async function renameConversation(
+  userId: string,
+  threadId: string,
+  title: string,
+): Promise<ConversationSummary> {
+  const res = await fetch(
+    `${BACKEND}/api/chat/history/${encodeURIComponent(threadId)}?user_id=${encodeURIComponent(userId)}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title }),
+    },
+  );
+  if (!res.ok) throw new Error("Failed to rename conversation");
+  return res.json() as Promise<ConversationSummary>;
+}
+
 /** Register the signed-in user with the backend to ensure their Composio entity exists. */
 export async function registerUser(userId: string, email?: string, name?: string): Promise<void> {
   try {

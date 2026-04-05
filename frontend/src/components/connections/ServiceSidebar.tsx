@@ -129,7 +129,7 @@ export function ServiceSidebar({ userId }: ServiceSidebarProps) {
       </div>
 
       {/* Footer */}
-      <div className="border-t border-white/5 px-3 py-3">
+      <div className="border-t border-white/5 px-3 py-3 space-y-2">
         <Link href="/connections">
           <Button variant="outline" size="sm" className="w-full text-xs gap-1.5">
             <Settings className="h-3 w-3" />

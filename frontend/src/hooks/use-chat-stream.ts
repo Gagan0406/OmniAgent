@@ -10,6 +10,18 @@ export interface Message {
   timestamp: Date;
 }
 
+function newThreadId(): string {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+interface UseChatStreamOptions {
+  /** Fires after the first user message of a new thread is sent. */
+  onFirstMessage?: (threadId: string, text: string) => void;
+}
+
 interface UseChatStreamReturn {
   messages: Message[];
   isLoading: boolean;
@@ -18,23 +30,38 @@ interface UseChatStreamReturn {
   setInput: (value: string) => void;
   sendMessage: (content?: string) => void;
   clearMessages: () => void;
+  /** The thread ID for the current session (client-generated or from history). */
+  currentThreadId: string;
+  /**
+   * Tear down the current socket and start a new session.
+   * - Pass a threadId string to resume a history thread (with optional past messages).
+   * - Pass null (or omit) to start a brand-new thread.
+   */
+  resetSession: (nextThreadId?: string | null, initialMessages?: Message[]) => void;
 }
 
-/**
- * Hook that manages a persistent WebSocket connection to the backend chat endpoint.
- * Handles reconnection, message queueing, and streaming status.
- */
-export function useChatStream(userId: string): UseChatStreamReturn {
+export function useChatStream(
+  userId: string,
+  opts: UseChatStreamOptions = {},
+): UseChatStreamReturn {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [input, setInput] = useState("");
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const firstMessageSentRef = useRef(false);
+  const threadIdRef = useRef<string>(newThreadId());
+  const onFirstMessageRef = useRef(opts.onFirstMessage);
+  onFirstMessageRef.current = opts.onFirstMessage;
+
+  // Expose a stable read of the current thread ID.
+  const [currentThreadId, setCurrentThreadId] = useState(threadIdRef.current);
 
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
+    firstMessageSentRef.current = false;
     const ws = new WebSocket(`${WS_BACKEND}/api/chat/ws`);
 
     ws.onopen = () => setIsConnected(true);
@@ -64,13 +91,10 @@ export function useChatStream(userId: string): UseChatStreamReturn {
     ws.onclose = () => {
       setIsConnected(false);
       setIsLoading(false);
-      // Reconnect after 2s
       reconnectRef.current = setTimeout(connect, 2000);
     };
 
-    ws.onerror = () => {
-      ws.close();
-    };
+    ws.onerror = () => ws.close();
 
     wsRef.current = ws;
   }, []);
@@ -100,12 +124,18 @@ export function useChatStream(userId: string): UseChatStreamReturn {
       setInput("");
       setIsLoading(true);
 
-      const payload = JSON.stringify({ user_id: userId, message: text });
+      // Always send thread_id on first message so the server knows which thread.
+      const isFirst = !firstMessageSentRef.current;
+      const payloadObj: Record<string, string> = { user_id: userId, message: text };
+      if (isFirst) {
+        payloadObj.thread_id = threadIdRef.current;
+      }
+      firstMessageSentRef.current = true;
+      const payload = JSON.stringify(payloadObj);
 
       if (wsRef.current?.readyState === WebSocket.OPEN) {
         wsRef.current.send(payload);
       } else {
-        // Connect and retry once open
         connect();
         const retry = setInterval(() => {
           if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -115,11 +145,32 @@ export function useChatStream(userId: string): UseChatStreamReturn {
         }, 100);
         setTimeout(() => clearInterval(retry), 5000);
       }
+
+      // Notify parent so it can optimistically add to history.
+      if (isFirst) {
+        onFirstMessageRef.current?.(threadIdRef.current, text);
+      }
     },
     [input, isLoading, userId, connect],
   );
 
   const clearMessages = useCallback(() => setMessages([]), []);
+
+  const resetSession = useCallback(
+    (nextThreadId?: string | null, initialMessages?: Message[]) => {
+      // null/undefined → brand-new thread; string → resume that thread.
+      const tid = nextThreadId ?? newThreadId();
+      threadIdRef.current = tid;
+      setCurrentThreadId(tid);
+
+      if (reconnectRef.current) clearTimeout(reconnectRef.current);
+      wsRef.current?.close();
+      setMessages(initialMessages ?? []);
+      setIsLoading(false);
+      connect();
+    },
+    [connect],
+  );
 
   return {
     messages,
@@ -129,5 +180,7 @@ export function useChatStream(userId: string): UseChatStreamReturn {
     setInput,
     sendMessage,
     clearMessages,
+    currentThreadId,
+    resetSession,
   };
 }

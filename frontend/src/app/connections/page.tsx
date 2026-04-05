@@ -21,6 +21,9 @@ const SERVICE_CATALOG = [
   { app: "slack", icon: "💬", name: "Slack", description: "Send messages and browse channels" },
   { app: "discord", icon: "🎮", name: "Discord", description: "Read and send Discord messages" },
   { app: "zoom", icon: "📹", name: "Zoom", description: "View and create Zoom meetings" },
+  { app: "googledrive", icon: "📁", name: "Google Drive", description: "Browse and manage Drive files" },
+  { app: "googledocs", icon: "📄", name: "Google Docs", description: "Read and write Google Docs" },
+  { app: "googlemeet", icon: "🎥", name: "Google Meet", description: "View and create Meet conferences" },
 ];
 
 /** Full-page connection management screen. */
