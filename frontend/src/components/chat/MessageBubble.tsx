@@ -2,6 +2,8 @@
 
 import { motion } from "framer-motion";
 import { Bot, User } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { type Message } from "@/hooks/use-chat-stream";
 import { cn } from "@/lib/utils";
 
@@ -12,8 +14,8 @@ interface MessageBubbleProps {
 
 /**
  * Renders a single chat message with entrance animation.
- * AI messages are left-aligned with a glass bubble and Bot icon avatar;
- * user messages are right-aligned with an indigo gradient bubble and User icon.
+ * AI messages render full markdown (GFM) with custom dark-theme components.
+ * User messages are plain text in an indigo gradient bubble.
  */
 export function MessageBubble({ message, index }: MessageBubbleProps) {
   const isUser = message.role === "user";
@@ -54,14 +56,111 @@ export function MessageBubble({ message, index }: MessageBubbleProps) {
             : "rounded-bl-sm bg-transparent text-slate-200 border-transparent",
         )}
       >
-        {message.content.split("\n").map((line, i) =>
-          line ? (
-            <p key={i} className={i > 0 ? "mt-1.5" : ""}>
-              {line}
-            </p>
-          ) : (
-            <br key={i} />
-          ),
+        {isUser ? (
+          // User messages: plain text, preserve newlines
+          <span className="whitespace-pre-wrap">{message.content}</span>
+        ) : (
+          // AI messages: full markdown rendering
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              // Paragraphs
+              p: ({ children }) => (
+                <p className="mb-3 last:mb-0 leading-relaxed text-slate-200">{children}</p>
+              ),
+
+              // Headings
+              h1: ({ children }) => (
+                <h1 className="text-xl font-bold text-white mb-3 mt-4 first:mt-0">{children}</h1>
+              ),
+              h2: ({ children }) => (
+                <h2 className="text-lg font-semibold text-white mb-2 mt-4 first:mt-0">{children}</h2>
+              ),
+              h3: ({ children }) => (
+                <h3 className="text-base font-semibold text-white mb-2 mt-3 first:mt-0">{children}</h3>
+              ),
+
+              // Lists
+              ul: ({ children }) => (
+                <ul className="list-disc list-outside pl-5 mb-3 space-y-1 text-slate-200">{children}</ul>
+              ),
+              ol: ({ children }) => (
+                <ol className="list-decimal list-outside pl-5 mb-3 space-y-1 text-slate-200">{children}</ol>
+              ),
+              li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+
+              // Inline code only — block code is handled by `pre` below
+              code: ({ children, ...props }) => (
+                <code
+                  className="px-1.5 py-0.5 rounded-md bg-white/10 text-indigo-300 text-[13px] font-mono"
+                  {...props}
+                >
+                  {children}
+                </code>
+              ),
+
+              // Code block wrapper — styles the <pre> and the <code> inside it
+              pre: ({ children }) => (
+                <pre className="mb-3 last:mb-0 rounded-xl bg-black/50 border border-white/10 px-4 py-3 text-[13px] font-mono text-emerald-300 overflow-x-auto whitespace-pre">
+                  {children}
+                </pre>
+              ),
+
+              // Blockquote
+              blockquote: ({ children }) => (
+                <blockquote className="border-l-2 border-indigo-500 pl-4 my-3 text-slate-400 italic">
+                  {children}
+                </blockquote>
+              ),
+
+              // Bold & italic
+              strong: ({ children }) => (
+                <strong className="font-semibold text-white">{children}</strong>
+              ),
+              em: ({ children }) => (
+                <em className="italic text-slate-300">{children}</em>
+              ),
+
+              // Horizontal rule
+              hr: () => <hr className="my-4 border-white/10" />,
+
+              // Links
+              a: ({ href, children }) => (
+                <a
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-indigo-400 underline underline-offset-2 hover:text-indigo-300 transition-colors"
+                >
+                  {children}
+                </a>
+              ),
+
+              // GFM Tables
+              table: ({ children }) => (
+                <div className="my-3 overflow-x-auto rounded-xl border border-white/10">
+                  <table className="w-full text-sm text-left">{children}</table>
+                </div>
+              ),
+              thead: ({ children }) => (
+                <thead className="bg-white/5 text-slate-300 text-xs uppercase tracking-wider">
+                  {children}
+                </thead>
+              ),
+              tbody: ({ children }) => (
+                <tbody className="divide-y divide-white/6">{children}</tbody>
+              ),
+              tr: ({ children }) => <tr className="hover:bg-white/[0.03] transition-colors">{children}</tr>,
+              th: ({ children }) => (
+                <th className="px-4 py-2.5 font-semibold text-slate-200">{children}</th>
+              ),
+              td: ({ children }) => (
+                <td className="px-4 py-2.5 text-slate-300">{children}</td>
+              ),
+            }}
+          >
+            {message.content}
+          </ReactMarkdown>
         )}
       </div>
     </motion.div>
