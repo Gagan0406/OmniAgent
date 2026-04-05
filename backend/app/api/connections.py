@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from app.services.auth import get_or_create_entity_id
 from app.services.composio_service import get_composio
 from app.tools.composio_tools import clear_tool_cache
+from app.tools.selection import clear_tool_selection_cache
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/connections", tags=["connections"])
@@ -124,6 +125,7 @@ async def initiate_connection(
         ) from exc
 
     clear_tool_cache(entity_id)
+    clear_tool_selection_cache(entity_id)
     logger.info("connection_initiated", app=app_name, user_id=user_id)
     return InitiateConnectionResponse(app=app_name, redirect_url=redirect_url)
 
@@ -157,3 +159,6 @@ async def disconnect(
             status_code=500,
             detail=f"Failed to disconnect '{app_name}': {exc}",
         ) from exc
+
+    clear_tool_cache(entity_id)
+    clear_tool_selection_cache(entity_id)

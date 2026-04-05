@@ -7,6 +7,8 @@ from pathlib import Path
 
 from langchain_core.tools import tool
 
+from app.config import settings
+
 MAX_TOOL_OUTPUT_CHARS = 10_000
 
 
@@ -14,6 +16,24 @@ def _truncate_output(content: str) -> str:
     """Cap tool output to keep responses model-friendly."""
 
     return content[:MAX_TOOL_OUTPUT_CHARS]
+
+
+def _resolve_workspace_path(path_str: str) -> Path:
+    """Resolve a path inside the configured workspace root."""
+
+    workspace_root = settings.workspace_root.resolve()
+    candidate = Path(path_str)
+    resolved_path = (
+        candidate.resolve() if candidate.is_absolute() else (workspace_root / candidate).resolve()
+    )
+
+    try:
+        resolved_path.relative_to(workspace_root)
+    except ValueError as exc:
+        msg = f"Path escapes the workspace root: {path_str}"
+        raise ValueError(msg) from exc
+
+    return resolved_path
 
 
 @tool
@@ -24,9 +44,7 @@ async def read_workspace_file(file_path: str) -> str:
         file_path: Path to a text file.
     """
 
-    # For now, assume files are in the current working directory
-    # This can be made configurable later
-    resolved_path = Path(file_path).resolve()
+    resolved_path = _resolve_workspace_path(file_path)
 
     if not resolved_path.is_file():
         msg = f"File not found: {file_path}"
@@ -47,7 +65,7 @@ async def search_workspace_files(query: str, directory: str = ".") -> str:
     """
 
     lowered_query = query.lower()
-    search_root = Path(directory).resolve()
+    search_root = _resolve_workspace_path(directory)
 
     def _search_files() -> list[str]:
         matches: list[str] = []

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from unittest.mock import MagicMock
+
 
 def test_healthcheck_returns_ok(client) -> None:
     """The healthcheck endpoint should return a healthy payload."""
@@ -35,8 +37,9 @@ def test_chat_websocket_returns_final_message(client, mock_groq) -> None:
     assert final_event["message"]  # non-empty
 
 
-def test_connections_endpoint_returns_empty_without_composio(client) -> None:
+def test_connections_endpoint_returns_empty_without_composio(client, monkeypatch) -> None:
     """Connections endpoint should return an empty list when Composio is not configured."""
+    monkeypatch.setattr("app.api.connections.get_composio", MagicMock(return_value=None))
     response = client.get("/api/connections?user_id=test-user")
 
     assert response.status_code == 200
@@ -44,8 +47,9 @@ def test_connections_endpoint_returns_empty_without_composio(client) -> None:
     assert response.json()["connections"] == []
 
 
-def test_connections_initiate_returns_503_without_composio(client) -> None:
+def test_connections_initiate_returns_503_without_composio(client, monkeypatch) -> None:
     """Initiate endpoint should return 503 when Composio API key is not set."""
+    monkeypatch.setattr("app.api.connections.get_composio", MagicMock(return_value=None))
     response = client.post("/api/connections/gmail/initiate?user_id=test-user")
 
     assert response.status_code == 503

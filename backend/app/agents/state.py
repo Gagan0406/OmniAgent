@@ -2,18 +2,31 @@
 
 from __future__ import annotations
 
-from typing import Annotated, TypedDict
+from typing import Annotated, Literal, TypedDict
 
+from langchain_core.messages import BaseMessage
 from langgraph.graph.message import add_messages
 
 
+class ToolResultRecord(TypedDict):
+    """Normalized record for a single executed tool call."""
+
+    tool_name: str
+    arguments_json: str
+    status: str
+    content: str
+
+
 class AgentState(TypedDict, total=False):
-    """State shared across the Omni Copilot graph.
+    """State shared across the Omni Copilot graph."""
 
-    Keys:
-        messages: Append-only conversation history managed by LangGraph.
-        user_id: Internal user identifier used for per-user tool scoping.
-    """
-
-    messages: Annotated[list, add_messages]
+    messages: Annotated[list[BaseMessage], add_messages]
     user_id: str
+    route: Literal["direct", "tools"]
+    task_summary: str
+    selected_capability_ids: list[str]
+    executed_tool_signatures: list[str]
+    tool_round_count: int
+    max_tool_rounds: int
+    loop_detected: bool
+    tool_results: list[ToolResultRecord]

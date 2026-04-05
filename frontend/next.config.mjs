@@ -1,5 +1,13 @@
+import path from "node:path";
+
+const windowsDistDir =
+  process.platform === "win32" && process.env.LOCALAPPDATA
+    ? path.relative(process.cwd(), path.join(process.env.LOCALAPPDATA, "omniagent-next"))
+    : ".next";
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  distDir: windowsDistDir,
   async rewrites() {
     return [
       {

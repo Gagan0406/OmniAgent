@@ -7,8 +7,28 @@ from pathlib import Path
 
 from langchain_core.tools import tool
 
+from app.config import settings
+
 CODE_FILE_EXTENSIONS = {".py", ".ts", ".tsx", ".js", ".jsx", ".md"}
 MAX_TOOL_OUTPUT_CHARS = 10_000
+
+
+def _resolve_workspace_path(path_str: str) -> Path:
+    """Resolve a directory inside the configured workspace root."""
+
+    workspace_root = settings.workspace_root.resolve()
+    candidate = Path(path_str)
+    resolved_path = (
+        candidate.resolve() if candidate.is_absolute() else (workspace_root / candidate).resolve()
+    )
+
+    try:
+        resolved_path.relative_to(workspace_root)
+    except ValueError as exc:
+        msg = f"Path escapes the workspace root: {path_str}"
+        raise ValueError(msg) from exc
+
+    return resolved_path
 
 
 @tool
@@ -21,7 +41,7 @@ async def grep_workspace_code(pattern: str, directory: str = ".") -> str:
     """
 
     lowered_pattern = pattern.lower()
-    search_root = Path(directory).resolve()
+    search_root = _resolve_workspace_path(directory)
 
     def _grep_files() -> list[str]:
         matches: list[str] = []
