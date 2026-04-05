@@ -87,7 +87,7 @@ export function ServiceSidebar({ userId }: ServiceSidebarProps) {
           </p>
         </div>
         <Button
-          variant="icon"
+          variant="default"
           size="icon"
           onClick={() => void refresh()}
           disabled={loading}
