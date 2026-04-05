@@ -15,6 +15,9 @@ interface ServiceSidebarProps {
 const SERVICE_META: Record<string, { icon: string; label: string }> = {
   gmail: { icon: "✉️", label: "Gmail" },
   googlecalendar: { icon: "📅", label: "Calendar" },
+  googledrive: { icon: "📁", label: "Google Drive" },
+  googledocs: { icon: "📄", label: "Google Docs" },
+  googlemeet: { icon: "🎥", label: "Google Meet" },
   notion: { icon: "📝", label: "Notion" },
   slack: { icon: "💬", label: "Slack" },
   discord: { icon: "🎮", label: "Discord" },

@@ -1,4 +1,4 @@
-"""Composio-backed tools for SaaS integrations (Gmail, Calendar, Notion, Slack, Discord, Zoom)."""
+"""Composio-backed tools for SaaS integrations (Gmail, Calendar, Notion, Slack, Discord, Zoom, Drive, Meet, Docs)."""
 
 from __future__ import annotations
 
@@ -42,18 +42,18 @@ _NAMED_ACTIONS = [
     *_SLACK_ACTIONS,
 ]
 
-# Discord + Zoom loaded by toolkit but hard-capped at 3 tools each
+# These toolkits are loaded by slug, hard-capped at 3 tools each
 # to avoid blowing the LLM context / token-per-minute limit.
-_PHASE5_TOOLKITS = ["discord", "zoom"]
-_PHASE5_LIMIT = 3
+_TOOLKIT_BASED = ["discord", "zoom", "googledrive", "googlemeet", "googledocs"]
+_TOOLKIT_LIMIT = 3
 
 
 async def get_user_tools(user_id: str) -> list[BaseTool]:
     """Return Composio-backed tools scoped to a specific user.
 
     Loads named actions for Gmail/Calendar/Notion/Slack, then adds up to
-    3 tools each for Discord and Zoom.  Total is capped well below the
-    free-tier Groq token limit.
+    3 tools each for Discord, Zoom, Google Drive, Google Meet, and Google Docs.
+    Total is capped well below the free-tier Groq token limit.
 
     Returns an empty list when Composio is not configured or unavailable.
 
@@ -81,13 +81,13 @@ async def get_user_tools(user_id: str) -> list[BaseTool]:
     except Exception as exc:  # noqa: BLE001
         logger.warning("composio_named_tools_unavailable", user_id=user_id, error=str(exc))
 
-    # --- Phase-5 toolkits: 3 tools per toolkit ---------------------------
-    for toolkit in _PHASE5_TOOLKITS:
+    # --- Toolkit-based loading: 3 tools per toolkit ----------------------
+    for toolkit in _TOOLKIT_BASED:
         try:
             tk_tools: list[BaseTool] = composio.tools.get(
                 user_id=entity_id,
                 toolkits=[toolkit],
-                limit=_PHASE5_LIMIT,
+                limit=_TOOLKIT_LIMIT,
             )
             tools.extend(tk_tools)
         except Exception as exc:  # noqa: BLE001
