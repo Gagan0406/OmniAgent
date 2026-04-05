@@ -79,10 +79,10 @@ export function ServiceSidebar({ userId }: ServiceSidebarProps) {
       {/* Header */}
       <div className="flex items-center justify-between px-4 pt-5 pb-3">
         <div>
-          <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-500">
+          <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-300">
             Connections
           </h2>
-          <p className="text-xs text-slate-600 mt-0.5">
+          <p className="text-xs text-slate-400 mt-0.5">
             {connectedCount}/{rows.length} active
           </p>
         </div>
@@ -116,7 +116,7 @@ export function ServiceSidebar({ userId }: ServiceSidebarProps) {
               title={row.connected ? `Disconnect ${meta.label}` : `Connect ${meta.label}`}
             >
               <span className="text-lg leading-none">{meta.icon}</span>
-              <span className="flex-1 text-sm text-slate-400 group-hover:text-slate-200 transition-colors truncate">
+              <span className="flex-1 text-sm text-slate-300 group-hover:text-white transition-colors truncate">
                 {meta.label}
               </span>
               <StatusBadge connected={row.connected} />

@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowUp, Mic, Paperclip, Square, WifiOff } from "lucide-react";
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -28,6 +28,10 @@ export function InputBar({ value, onChange, onSend, isLoading, isConnected }: In
     el.style.height = `${Math.min(el.scrollHeight, 180)}px`;
   }, []);
 
+  useEffect(() => {
+    if (!value) adjustHeight();
+  }, [value, adjustHeight]);
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -41,26 +45,25 @@ export function InputBar({ value, onChange, onSend, isLoading, isConnected }: In
   };
 
   return (
-    <div className="px-4 pb-4 pt-2">
+    <div className="px-4 md:px-12 pb-6 pt-2 w-full max-w-4xl mx-auto">
       <motion.div
-        className="relative overflow-hidden rounded-2xl border border-white/10"
-        style={{ background: "rgba(10,10,20,0.8)", backdropFilter: "blur(24px)" }}
+        className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-[#0c0c14]/80 backdrop-blur-3xl shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
         animate={{
           boxShadow: isLoading
-            ? "0 0 0 1px rgba(99,102,241,0.5), 0 0 48px rgba(99,102,241,0.18)"
-            : "0 0 0 1px rgba(99,102,241,0.15), 0 0 24px rgba(99,102,241,0.04)",
+            ? "0 0 0 1px rgba(99,102,241,0.5), 0 0 60px rgba(99,102,241,0.2)"
+            : "0 0 0 1px rgba(99,102,241,0.15), 0 8px 32px rgba(0,0,0,0.4)",
         }}
-        transition={{ duration: 0.5 }}
+        transition={{ duration: 0.4 }}
       >
         {/* Shimmer scan line while loading */}
         <AnimatePresence>
           {isLoading && (
             <motion.div
-              className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-indigo-400/60 to-transparent"
+              className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-indigo-400 to-transparent shadow-[0_0_15px_rgba(129,140,248,0.8)]"
               initial={{ x: "-100%" }}
               animate={{ x: "100%" }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 1.6, repeat: Infinity, ease: "linear" }}
+              transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
             />
           )}
         </AnimatePresence>
@@ -75,38 +78,38 @@ export function InputBar({ value, onChange, onSend, isLoading, isConnected }: In
               transition={{ duration: 0.2 }}
               className="overflow-hidden"
             >
-              <div className="flex items-center gap-2 border-b border-amber-900/30 bg-amber-950/20 px-4 py-2 text-xs text-amber-400/90">
-                <WifiOff className="h-3 w-3 shrink-0" />
-                Reconnecting to server…
+              <div className="flex items-center justify-center gap-2 border-b border-rose-900/40 bg-rose-950/30 px-4 py-2.5 text-xs font-medium text-rose-300">
+                <WifiOff className="h-3.5 w-3.5 shrink-0" />
+                Connection lost. Trying to reconnect...
               </div>
             </motion.div>
           )}
         </AnimatePresence>
 
         {/* Textarea */}
-        <div className="px-4 pt-3 pb-1">
+        <div className="px-5 pt-4 pb-1">
           <Textarea
             ref={textareaRef}
             value={value}
             onChange={handleChange}
             onKeyDown={handleKeyDown}
-            placeholder="Ask anything — your files, Gmail, calendar, Notion…"
+            placeholder="Ask Omni Copilot anything..."
             rows={1}
-            style={{ minHeight: "44px", maxHeight: "180px" }}
+            className="text-base md:text-[15px] resize-none border-0 bg-transparent p-0 focus-visible:ring-0 text-slate-100 placeholder:text-slate-500 shadow-none min-h-[44px] max-h-[200px]"
             disabled={isLoading}
           />
         </div>
 
         {/* Footer actions */}
-        <div className="flex items-center justify-between px-3 pb-3">
-          <div className="flex items-center gap-1">
-            <Button variant="icon" size="icon" className="opacity-40 cursor-not-allowed" disabled>
-              <Paperclip className="h-4 w-4" />
+        <div className="flex items-center justify-between px-4 pb-3">
+          <div className="flex items-center gap-0.5">
+            <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-400 hover:text-white rounded-xl transition-colors cursor-not-allowed group">
+              <Paperclip className="h-4 w-4 group-hover:scale-110 transition-transform" />
             </Button>
-            <Button variant="icon" size="icon" className="opacity-40 cursor-not-allowed" disabled>
-              <Mic className="h-4 w-4" />
+            <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-400 hover:text-white rounded-xl transition-colors cursor-not-allowed group">
+              <Mic className="h-4 w-4 group-hover:scale-110 transition-transform" />
             </Button>
-            <span className="ml-2 text-xs text-slate-600">Shift+Enter for newline</span>
+            <span className="ml-2 text-[10px] uppercase font-mono tracking-widest text-slate-400 hidden sm:block">Shift+Enter for newline</span>
           </div>
 
           <AnimatePresence mode="wait">
@@ -120,8 +123,7 @@ export function InputBar({ value, onChange, onSend, isLoading, isConnected }: In
               >
                 <Button
                   size="icon"
-                  variant="outline"
-                  className="h-9 w-9 border-indigo-500/40 text-indigo-400 hover:text-indigo-300"
+                  className="h-10 w-10 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700"
                   disabled
                 >
                   <Square className="h-3.5 w-3.5 fill-current" />
@@ -139,9 +141,9 @@ export function InputBar({ value, onChange, onSend, isLoading, isConnected }: In
                   size="icon"
                   onClick={onSend}
                   disabled={!value.trim() || !isConnected}
-                  className="h-9 w-9 shadow-lg shadow-indigo-900/40"
+                  className="h-10 w-10 rounded-xl disabled:opacity-30 disabled:bg-indigo-600 bg-indigo-600 text-white shadow-[0_0_15px_rgba(99,102,241,0.3)] hover:shadow-[0_0_25px_rgba(99,102,241,0.5)] transition-all hover:-translate-y-0.5"
                 >
-                  <ArrowUp className="h-4 w-4" />
+                  <ArrowUp className="h-5 w-5 stroke-[2.5]" />
                 </Button>
               </motion.div>
             )}
@@ -149,7 +151,7 @@ export function InputBar({ value, onChange, onSend, isLoading, isConnected }: In
         </div>
       </motion.div>
 
-      <p className="mt-2 text-center text-xs text-slate-700">
+      <p className="mt-3 text-center text-xs text-slate-400 font-light">
         Omni Copilot can make mistakes. Verify important information.
       </p>
     </div>

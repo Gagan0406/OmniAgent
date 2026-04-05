@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ChevronLeft, ChevronRight, Eraser, LogOut, Zap } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { ChatWindow } from "@/components/chat/ChatWindow";
 import { InputBar } from "@/components/chat/InputBar";
 import { ServiceSidebar } from "@/components/connections/ServiceSidebar";
@@ -94,7 +95,7 @@ function ChatInterface({ userId }: { userId: string }) {
             animate={{ width: 260, opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            className="relative z-10 shrink-0 overflow-hidden border-r border-white/6"
+            className="relative z-10 shrink-0 overflow-hidden"
             style={{ backdropFilter: "blur(24px)", background: "rgba(255,255,255,0.03)" }}
           >
             <div className="w-[260px]">
@@ -107,7 +108,7 @@ function ChatInterface({ userId }: { userId: string }) {
       {/* Main chat area */}
       <div className="relative z-10 flex flex-1 flex-col overflow-hidden">
         <header
-          className="flex items-center gap-3 border-b border-white/6 px-4 py-3"
+          className="flex items-center gap-3 px-4 py-3"
           style={{ backdropFilter: "blur(16px)", background: "rgba(255,255,255,0.02)" }}
         >
           <Button
@@ -123,14 +124,14 @@ function ChatInterface({ userId }: { userId: string }) {
             )}
           </Button>
 
-          <div className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity">
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-600/30 border border-indigo-500/40">
               <Zap className="h-3.5 w-3.5 text-indigo-400" />
             </div>
-            <span className="gradient-text text-sm font-semibold tracking-tight">
+            <span className="gradient-text text-sm font-semibold tracking-tight text-white drop-shadow-sm">
               Omni Copilot
             </span>
-          </div>
+          </Link>
 
           {/* Connection status pill */}
           <div
@@ -154,7 +155,7 @@ function ChatInterface({ userId }: { userId: string }) {
               variant="ghost"
               size="sm"
               onClick={clearMessages}
-              className="text-slate-600 hover:text-slate-400 text-xs gap-1"
+              className="text-slate-300 hover:text-white text-xs gap-1"
             >
               <Eraser className="h-3 w-3" />
               Clear
@@ -167,7 +168,7 @@ function ChatInterface({ userId }: { userId: string }) {
             size="icon"
             onClick={() => signOut({ callbackUrl: "/login" })}
             title="Sign out"
-            className="text-slate-600 hover:text-slate-400"
+            className="text-slate-300 hover:text-white"
           >
             <LogOut className="h-3.5 w-3.5" />
           </Button>

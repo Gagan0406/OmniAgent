@@ -1,6 +1,11 @@
-import { redirect } from "next/navigation";
+import { Hero } from "@/components/hero";
+import { Navbar } from "@/components/navbar";
 
-/** Root page — redirect to the chat interface. */
 export default function Home() {
-  redirect("/chat");
+  return (
+    <main className="min-h-screen bg-black w-full text-white selection:bg-indigo-500/30">
+      <Navbar />
+      <Hero />
+    </main>
+  );
 }

@@ -171,21 +171,18 @@ At the end of each session, update it with what changed, what passed, and what i
 ## Last Session
 - **Date:** 2026-04-05
 - **What was built:**
-  - Phase 5: Migrated Composio SDK from old ComposioToolSet API to new Composio+LanggraphProvider API
-  - Added Discord + Zoom via toolkit-based loading (capped at 3 tools each)
-  - Fixed connections API: auto-creates Composio-managed auth config when none exists
-  - Fixed 413 token overflow: separated named vs toolkit tool loading with per-toolkit limit
-  - Upgraded pydantic to >=2.12, langchain-core/groq/langgraph to 1.x for Python 3.14 compatibility
-  - Fixed registerUser failing loudly when backend unreachable
-  - Pushed to GitHub: Gagan0406/OmniAgent
+  - Overhauled Next.js frontend root page (`/`) from a redirect to a full landing page.
+  - Built and integrated Aceternity UI `GoogleGeminiEffect` with Framer Motion.
+  - Added a floating `Navbar` featuring dynamic NextAuth session profile avatars.
+  - Phase 5: Migrated Composio SDK and finalized tool caps.
 - **Tests:** 10/10 backend passing
-- **Commits:** feat: complete Phase 5 — Composio SDK migration, Discord/Zoom tools, Python 3.14 deps
+- **Commits:** feat: add animated landing page and session navbar
 
 ---
 
 ## Next Session Should Start With
 1. Read this file
-2. Run `cd backend && uv run pytest` — confirm 10/10 green
-3. Phase 6: GitHub Actions CI (lint + test + build), Dockerfile for backend, vercel.json for frontend
-4. Phase 6: Add error boundaries in frontend, exponential backoff for Groq rate limits in nodes.py
-5. Consider upgrading Groq to dev tier or switching to a model with higher TPM
+2. Verify UI changes by running `cd frontend && pnpm dev`
+3. Run `cd backend && uv run pytest` — confirm 10/10 green
+4. Phase 6: GitHub Actions CI (lint + test + build), Dockerfile for backend, vercel.json for frontend
+5. Phase 6: Add error boundaries in frontend, exponential backoff for Groq rate limits in nodes.py

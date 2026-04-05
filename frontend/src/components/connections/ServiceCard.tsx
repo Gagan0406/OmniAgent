@@ -40,79 +40,91 @@ export function ServiceCard({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 8 }}
+      initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}
-      whileHover={{ y: -4, transition: { duration: 0.2, ease: "easeOut" } }}
+      whileHover={{
+        y: -4,
+        scale: 1.01,
+        transition: { duration: 0.3, ease: "easeOut" },
+      }}
       className={cn(
-        "relative overflow-hidden rounded-2xl border p-5 transition-colors duration-300",
+        "group relative overflow-hidden flex items-center justify-between p-5 rounded-3xl border transition-all duration-500",
         connected
-          ? "border-emerald-500/20 bg-emerald-950/10"
-          : "border-white/8 bg-white/3",
+          ? "border-emerald-500/30 bg-emerald-950/20 hover:shadow-[0_0_30px_rgba(16,185,129,0.15)] hover:border-emerald-400/50"
+          : "border-white/10 bg-white/5 hover:bg-neutral-900/80 hover:shadow-[0_0_30px_rgba(99,102,241,0.15)] hover:border-indigo-500/40"
       )}
       style={{ backdropFilter: "blur(20px)" }}
     >
-      {/* Gradient overlay */}
+      {/* Background ambient glow matching bg-black */}
       <div
         className={cn(
-          "pointer-events-none absolute inset-0 opacity-30 transition-opacity duration-300",
+          "absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none",
           connected
-            ? "bg-gradient-to-br from-emerald-900/30 via-transparent to-transparent"
-            : "bg-gradient-to-br from-indigo-950/30 via-transparent to-transparent",
+            ? "bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-emerald-900/20 via-transparent to-transparent"
+            : "bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-indigo-900/20 via-transparent to-transparent"
         )}
       />
 
-      <div className="relative flex items-center gap-4">
-        {/* Icon */}
-        <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-white/8 bg-white/5 text-xl">
-          {icon}
-          {/* Ping dot for connected state */}
-          {connected && (
-            <span className="absolute -right-1 -top-1 flex h-3 w-3">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
-              <span className="relative inline-flex h-3 w-3 rounded-full bg-emerald-500" />
-            </span>
-          )}
-        </div>
-
-        {/* Info */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <h3 className="font-medium text-slate-100 truncate">{name}</h3>
-            <StatusBadge connected={connected} />
+      <div className="relative flex items-center gap-4 w-full justify-between z-10">
+        <div className="flex items-center gap-4 min-w-0 max-w-[70%]">
+          {/* Icon Container */}
+          <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-white/10 bg-gradient-to-br from-white/5 to-white/10 text-2xl shadow-inner shadow-white/5 group-hover:shadow-[0_0_15px_rgba(255,255,255,0.1)] transition-all duration-300">
+            {icon}
+            {/* Ping dot for connected state */}
+            {connected && (
+              <span className="absolute -right-0.5 -top-0.5 flex h-3.5 w-3.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex h-3.5 w-3.5 rounded-full bg-emerald-500 border-2 border-emerald-950" />
+              </span>
+            )}
           </div>
-          <p className="text-xs text-slate-500 mt-0.5 truncate">{description}</p>
-          <p className="text-xs text-slate-600 mt-0.5 capitalize">{status.toLowerCase()}</p>
+
+          {/* Info */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-3">
+              <span className="block text-base text-white tracking-wide font-semibold truncate">
+                {name}
+              </span>
+              <StatusBadge connected={connected} />
+            </div>
+            <span className="block text-sm text-slate-400 font-light mt-0.5 truncate group-hover:text-slate-300 transition-colors">
+              {description}
+            </span>
+            <span className="block text-[10px] font-mono text-slate-500 mt-1 uppercase tracking-widest opacity-60">
+              {status}
+            </span>
+          </div>
         </div>
 
-        {/* Action */}
+        {/* Action Button */}
         {connected ? (
           <Button
             variant="outline"
             size="sm"
             onClick={() => handle(onDisconnect)}
             disabled={busy}
-            className="shrink-0 text-rose-400 border-rose-900/40 hover:bg-rose-900/20 hover:text-rose-300"
+            className="shrink-0 rounded-xl px-4 py-2 bg-transparent text-rose-400 font-medium tracking-tight border border-rose-900/50 hover:bg-rose-950/40 hover:text-rose-300 hover:border-rose-500/50 transition-all duration-300"
           >
             {busy ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              <Unplug className="h-3.5 w-3.5" />
+              <Unplug className="h-4 w-4 mr-2" />
             )}
-            <span className="ml-1.5">Disconnect</span>
+            <span>Manage</span>
           </Button>
         ) : (
           <Button
             size="sm"
             onClick={() => handle(onConnect)}
             disabled={busy}
-            className="shrink-0"
+            className="shrink-0 rounded-xl px-5 py-2 font-semibold text-white bg-indigo-600 hover:bg-indigo-500 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-indigo-500/20 transition-all duration-300"
           >
             {busy ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              <Plug className="h-3.5 w-3.5" />
+              <Plug className="h-4 w-4 mr-2" />
             )}
-            <span className="ml-1.5">Connect</span>
+            <span>Connect</span>
           </Button>
         )}
       </div>

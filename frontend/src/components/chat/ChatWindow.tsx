@@ -25,61 +25,76 @@ export function ChatWindow({ messages, isLoading, onSuggestion }: ChatWindowProp
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    const parent = bottomRef.current?.parentElement;
+    if (parent) {
+      parent.scrollTo({
+        top: parent.scrollHeight,
+        behavior: "smooth"
+      });
+    }
   }, [messages, isLoading]);
 
   if (messages.length === 0) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-8 px-6 py-16 text-center">
-        {/* Hero icon */}
+      <div className="flex flex-1 flex-col items-center justify-center gap-10 px-6 py-12 text-center h-full my-auto mt-20">
+        {/* Animated AI Orb Hero */}
         <motion.div
-          initial={{ scale: 0.6, opacity: 0 }}
+          initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="relative"
+          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+          className="relative flex items-center justify-center"
         >
-          <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-indigo-600/20 border border-indigo-500/30 shadow-xl shadow-indigo-900/30">
-            <Bot className="h-10 w-10 text-indigo-400" />
+          {/* Ambient Glow */}
+          <motion.div
+            className="absolute h-32 w-32 rounded-full bg-indigo-600/20 blur-2xl"
+            animate={{ scale: [1, 1.4, 1], opacity: [0.5, 0.8, 0.5] }}
+            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+          />
+          <div className="relative flex h-24 w-24 items-center justify-center rounded-[2rem] bg-gradient-to-br from-indigo-900/40 to-slate-900/40 border border-white/10 shadow-[0_0_40px_rgba(99,102,241,0.2)] backdrop-blur-xl">
+            <Bot className="h-10 w-10 text-indigo-300 drop-shadow-[0_0_10px_rgba(165,180,252,0.8)]" />
           </div>
           <motion.div
-            className="absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 border-2 border-[#050508]"
-            animate={{ scale: [1, 1.2, 1] }}
-            transition={{ duration: 2, repeat: Infinity }}
+            className="absolute -top-2 -right-2 flex h-8 w-8 items-center justify-center rounded-full bg-indigo-500 shadow-[0_0_20px_rgba(99,102,241,0.6)]"
+            animate={{ y: [0, -6, 0] }}
+            transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
           >
-            <Sparkles className="h-3 w-3 text-white" />
+            <Sparkles className="h-4 w-4 text-white" />
           </motion.div>
         </motion.div>
 
         {/* Headline */}
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
+          initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15, duration: 0.4 }}
-          className="space-y-2"
+          transition={{ delay: 0.2, duration: 0.5 }}
+          className="space-y-4"
         >
-          <h2 className="text-2xl font-semibold text-slate-100">
+          <h2 className="text-3xl md:text-5xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-indigo-100 to-indigo-300 drop-shadow-sm pb-1">
             How can I help you today?
           </h2>
-          <p className="text-sm text-slate-500 max-w-xs">
-            Ask about your files, emails, calendar, Notion, Slack — or anything else.
+          <p className="text-base text-slate-400 max-w-md mx-auto font-light">
+            Ask about your files, emails, calendar, Notion, Slack — or absolutely anything else.
           </p>
         </motion.div>
 
-        {/* Suggestion pills */}
+        {/* Bento Suggestion Pills */}
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
+          initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.25, duration: 0.4 }}
-          className="flex flex-wrap justify-center gap-2 max-w-sm"
+          transition={{ delay: 0.35, duration: 0.5 }}
+          className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-xl mx-auto w-full mt-4"
         >
-          {SUGGESTIONS.map((s) => (
-            <button
+          {SUGGESTIONS.map((s, idx) => (
+            <motion.button
               key={s}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
               onClick={() => onSuggestion(s)}
-              className="rounded-xl border border-white/8 bg-white/4 px-4 py-2 text-xs text-slate-400 transition-all duration-200 hover:border-indigo-500/40 hover:bg-indigo-600/10 hover:text-indigo-300"
+              className="flex items-center text-left rounded-2xl border border-white/5 bg-white/[0.02] px-5 py-4 text-sm text-slate-300 transition-colors hover:border-indigo-500/30 hover:bg-indigo-500/10 hover:text-indigo-200 group"
             >
-              {s}
-            </button>
+              <span className="flex-1 font-medium">{s}</span>
+              <span className="ml-3 text-indigo-400 opacity-0 transition-opacity group-hover:opacity-100">&rarr;</span>
+            </motion.button>
           ))}
         </motion.div>
       </div>

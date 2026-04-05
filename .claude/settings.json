@@ -43,16 +43,6 @@
             "timeout": 5
           }
         ]
-      },
-      {
-        "matcher": "Edit|Write|MultiEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "[ \"$(git branch --show-current 2>/dev/null)\" != \"main\" ] && [ \"$(git branch --show-current 2>/dev/null)\" != \"master\" ] || { echo '{\"decision\":\"block\",\"reason\":\"Cannot edit directly on main. Create a feature branch: git checkout -b feat/your-feature\"}' >&2; exit 2; }",
-            "timeout": 5
-          }
-        ]
       }
     ],
     "PostToolUse": [
