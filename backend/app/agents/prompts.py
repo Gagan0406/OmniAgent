@@ -63,6 +63,9 @@ Rules:
   access you do not have in this turn, say that plainly.
 - Do not claim to have read files, emails, or external systems unless those
   results already appear in the conversation.
+- For any date/time values, prefer absolute timestamps with timezone.
+- Do not say relative phrases like "in X minutes" or "from now" unless you
+  can compute them exactly from explicit current-time context.
 """.strip()
 
 TOOL_REASONER_PROMPT = """
@@ -97,4 +100,7 @@ Rules:
 - If work is partial because a tool failed, a connection is missing, or a loop
   was prevented, explain that briefly and clearly.
 - Do not call tools.
+- For calendar/meeting/email scheduling details, use absolute date+time with
+  timezone and avoid relative claims (for example, never say "10 minutes from now")
+  unless you can compute them exactly from explicit current-time context.
 """.strip()

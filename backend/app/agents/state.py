@@ -17,6 +17,17 @@ class ToolResultRecord(TypedDict):
     content: str
 
 
+class PendingConfirmation(TypedDict):
+    """Pending outbound action requiring explicit user confirmation."""
+
+    tool_name: str
+    tool_call_id: str
+    arguments_json: str
+    draft_field: str
+    draft_text: str
+    selected_capability_ids: list[str]
+
+
 class AgentState(TypedDict, total=False):
     """State shared across the Omni Copilot graph."""
 
@@ -30,3 +41,4 @@ class AgentState(TypedDict, total=False):
     max_tool_rounds: int
     loop_detected: bool
     tool_results: list[ToolResultRecord]
+    pending_confirmation: PendingConfirmation | None

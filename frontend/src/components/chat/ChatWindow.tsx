@@ -11,6 +11,9 @@ interface ChatWindowProps {
   messages: Message[];
   isLoading: boolean;
   onSuggestion: (text: string) => void;
+  onConfirmDraft: () => void;
+  onCancelDraft: () => void;
+  onEditDraft: () => void;
 }
 
 const SUGGESTIONS = [
@@ -21,7 +24,14 @@ const SUGGESTIONS = [
 ];
 
 /** Scrollable messages area with empty-state suggestions. */
-export function ChatWindow({ messages, isLoading, onSuggestion }: ChatWindowProps) {
+export function ChatWindow({
+  messages,
+  isLoading,
+  onSuggestion,
+  onConfirmDraft,
+  onCancelDraft,
+  onEditDraft,
+}: ChatWindowProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -105,7 +115,14 @@ export function ChatWindow({ messages, isLoading, onSuggestion }: ChatWindowProp
     <div className="flex flex-1 flex-col gap-5 overflow-y-auto py-6">
       <AnimatePresence initial={false}>
         {messages.map((msg, i) => (
-          <MessageBubble key={msg.id} message={msg} index={i} />
+          <MessageBubble
+            key={msg.id}
+            message={msg}
+            index={i}
+            onConfirmDraft={onConfirmDraft}
+            onCancelDraft={onCancelDraft}
+            onEditDraft={onEditDraft}
+          />
         ))}
         {isLoading && <TypingIndicator key="typing" />}
       </AnimatePresence>

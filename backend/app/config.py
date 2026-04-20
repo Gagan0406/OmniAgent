@@ -24,8 +24,9 @@ class Settings(BaseSettings):
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
 
     database_url: str = "sqlite+aiosqlite:///./omni_copilot.db"
-    groq_api_key: str | None = None
-    groq_model: str = "llama-3.3-70b-versatile"
+    openrouter_api_key: str | None = None
+    llm_model: str = "openai/gpt-oss-20b:free"
+    user_timezone: str = "Asia/Kolkata"
     composio_api_key: str | None = None
     workspace_root: Path = Field(default_factory=lambda: Path(__file__).resolve().parents[2])
 

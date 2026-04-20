@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import json
 from collections.abc import Sequence
+from datetime import UTC, datetime, timedelta, timezone
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import structlog
-from groq import BadRequestError
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_core.tools import BaseTool
-from langchain_groq import ChatGroq
+from langchain_openai import ChatOpenAI
+from openai import BadRequestError
 from pydantic import ValidationError
 
 from app.agents.prompts import (
@@ -29,13 +31,47 @@ logger = structlog.get_logger(__name__)
 def _prepend_system(prompt: str, messages: Sequence[BaseMessage]) -> list[BaseMessage]:
     """Return a message list with the prompt prepended as a system message."""
 
-    return [SystemMessage(content=prompt), *messages]
+    contextual_prompt = (
+        f"{prompt}\n\n{_build_time_context()}\n"
+        "When the user asks for 'now', 'today', or dates/times without a timezone, "
+        "default to the configured local timezone above."
+    )
+    return [SystemMessage(content=contextual_prompt), *messages]
 
 
-def _make_llm() -> ChatGroq:
-    """Create the shared Groq client used by the internal specialist agents."""
+def _build_time_context() -> str:
+    """Build a stable runtime time context so the model doesn't assume UTC."""
 
-    return ChatGroq(model=settings.groq_model, api_key=settings.groq_api_key, temperature=0)
+    tz_name = settings.user_timezone
+    try:
+        local_tz = ZoneInfo(tz_name)
+    except ZoneInfoNotFoundError:
+        # Windows/embedded Python runtimes can miss IANA tz DB (`tzdata`).
+        # Fallback to fixed IST offset so time-sensitive prompts still work.
+        logger.warning("user_timezone_not_found_fallback_to_ist", timezone=tz_name)
+        tz_name = "IST (UTC+05:30 fallback)"
+        local_tz = timezone(timedelta(hours=5, minutes=30))
+
+    local_now = datetime.now(local_tz)
+    utc_now = datetime.now(UTC)
+    return (
+        "Runtime time context:\n"
+        f"- User timezone: {tz_name}\n"
+        f"- Current local datetime: {local_now.isoformat()}\n"
+        f"- Current UTC datetime: {utc_now.isoformat()}"
+    )
+
+
+def _make_llm() -> ChatOpenAI:
+    """Create the shared OpenRouter client used by the internal specialist agents."""
+
+    return ChatOpenAI(
+        model=settings.llm_model,
+        api_key=settings.openrouter_api_key,
+        base_url="https://openrouter.ai/api/v1",
+        temperature=0,
+        max_retries=5,
+    )
 
 
 def _recent_messages(
@@ -237,6 +273,39 @@ def _build_tool_registry(tools: Sequence[BaseTool]) -> dict[str, BaseTool]:
     return {tool.name: tool for tool in tools}
 
 
+_CONFIRMATION_TOOL_MARKERS = (
+    "send",
+    "message",
+    "email",
+    "post",
+    "whatsapp",
+    "notion_create",
+    "create_notion",
+    "discord",
+    "slack",
+)
+_DRAFT_ARG_KEYS = ("body", "message", "content", "text", "note")
+
+
+def _requires_user_confirmation(tool_name: str, tool_args: dict) -> bool:
+    """Return True when the tool call appears to send/post user-visible content."""
+
+    lowered = tool_name.lower()
+    if not any(marker in lowered for marker in _CONFIRMATION_TOOL_MARKERS):
+        return False
+    return _find_draft_field(tool_args) is not None
+
+
+def _find_draft_field(tool_args: dict) -> str | None:
+    """Best-effort detection of the argument key containing draft text."""
+
+    for key in _DRAFT_ARG_KEYS:
+        value = tool_args.get(key)
+        if isinstance(value, str) and value.strip():
+            return key
+    return None
+
+
 async def _invoke_text_response(
     *,
     prompt: str,
@@ -290,13 +359,30 @@ async def _invoke_text_response(
 async def classify_intent(state: AgentState) -> dict[str, object]:
     """Classify the current turn before any tool schema is bound."""
 
+    pending_confirmation = state.get("pending_confirmation")
+    if pending_confirmation:
+        return {
+            "route": "direct",
+            "task_summary": "A pending message draft is waiting for user confirmation.",
+            "selected_capability_ids": [],
+            "executed_tool_signatures": [],
+            "tool_round_count": 0,
+            "max_tool_rounds": 1,
+            "loop_detected": False,
+            "tool_results": state.get("tool_results", []),
+            "pending_confirmation": pending_confirmation,
+        }
+
     user_id = state.get("user_id", "anonymous")
     messages = _recent_messages(state["messages"], max_messages=8, max_tool_messages=2)
     capabilities = await get_available_capabilities(user_id)
     prompt = (
         CLASSIFIER_PROMPT.format(capabilities=_format_capabilities(capabilities))
         + "\n\nReturn strict JSON with keys: "
-        + '{"route":"direct|tools","task_summary":"...","selected_capability_ids":[],"max_tool_rounds":1}'
+        + (
+            '{"route":"direct|tools","task_summary":"...",'
+            '"selected_capability_ids":[],"max_tool_rounds":1}'
+        )
     )
 
     try:
@@ -329,6 +415,7 @@ async def classify_intent(state: AgentState) -> dict[str, object]:
         "max_tool_rounds": decision.max_tool_rounds,
         "loop_detected": False,
         "tool_results": [],
+        "pending_confirmation": None,
     }
 
 
@@ -421,6 +508,7 @@ async def tool_executor(state: AgentState) -> dict[str, object]:
     executed_signatures = list(state.get("executed_tool_signatures", []))
     existing_results = list(state.get("tool_results", []))
     new_results = []
+    pending_confirmation = None
     loop_detected = False
     round_had_success = False
 
@@ -452,15 +540,33 @@ async def tool_executor(state: AgentState) -> dict[str, object]:
                 status = "missing"
                 logger.warning("tool_not_found", tool=tool_name, user_id=user_id)
             else:
-                try:
-                    content = str(await tool.ainvoke(tool_args))
-                    status = "success"
-                    round_had_success = True
-                    logger.info("tool_executed", tool=tool_name, user_id=user_id)
-                except Exception as exc:  # noqa: BLE001
-                    content = f"Tool '{tool_name}' failed: {exc}"
-                    status = "error"
-                    logger.exception("tool_execution_failed", tool=tool_name, user_id=user_id)
+                draft_field = _find_draft_field(tool_args)
+                if _requires_user_confirmation(tool_name, tool_args) and draft_field:
+                    status = "pending_confirmation"
+                    content = (
+                        f"Pending confirmation for '{tool_name}'. "
+                        "Awaiting explicit user approval before execution."
+                    )
+                    pending_confirmation = {
+                        "tool_name": tool_name,
+                        "tool_call_id": call_id,
+                        "arguments_json": tool_args_json,
+                        "draft_field": draft_field,
+                        "draft_text": str(tool_args.get(draft_field, "")),
+                        "selected_capability_ids": list(state.get("selected_capability_ids", [])),
+                    }
+                    loop_detected = True
+                    logger.info("tool_call_requires_confirmation", tool=tool_name, user_id=user_id)
+                else:
+                    try:
+                        content = str(await tool.ainvoke(tool_args))
+                        status = "success"
+                        round_had_success = True
+                        logger.info("tool_executed", tool=tool_name, user_id=user_id)
+                    except Exception as exc:  # noqa: BLE001
+                        content = f"Tool '{tool_name}' failed: {exc}"
+                        status = "error"
+                        logger.exception("tool_execution_failed", tool=tool_name, user_id=user_id)
 
         tool_messages.append(ToolMessage(content=content[:10_000], tool_call_id=call_id))
         new_results.append(
@@ -478,11 +584,26 @@ async def tool_executor(state: AgentState) -> dict[str, object]:
         "tool_round_count": state.get("tool_round_count", 0) + 1,
         "loop_detected": loop_detected and not round_had_success,
         "tool_results": [*existing_results, *new_results],
+        "pending_confirmation": pending_confirmation,
     }
 
 
 async def synthesize_response(state: AgentState) -> dict[str, object]:
     """Generate the final user-facing answer after the tool path."""
+
+    pending_confirmation = state.get("pending_confirmation")
+    if pending_confirmation:
+        tool_name = pending_confirmation.get("tool_name", "this action")
+        draft_text = pending_confirmation.get("draft_text", "")
+        response = (
+            f"I prepared a draft for `{tool_name}` but have not sent it yet.\n\n"
+            f"Draft:\n{draft_text}\n\n"
+            "Reply with one of the following:\n"
+            "1. `confirm` to send now\n"
+            "2. `cancel` to stop\n"
+            "3. An edit instruction (example: remove paragraph 1, set name to Gagan Gupta)"
+        )
+        return {"messages": [AIMessage(content=response)], "loop_detected": False}
 
     last_message = state["messages"][-1]
     if (

@@ -8,6 +8,10 @@ export interface Message {
   role: "user" | "assistant";
   content: string;
   timestamp: Date;
+  confirmation?: {
+    toolName: string;
+    draft: string;
+  };
 }
 
 function newThreadId(): string {
@@ -29,6 +33,9 @@ interface UseChatStreamReturn {
   input: string;
   setInput: (value: string) => void;
   sendMessage: (content?: string) => void;
+  confirmPending: () => void;
+  cancelPending: () => void;
+  editPendingDraft: (instruction: string) => void;
   clearMessages: () => void;
   /** The thread ID for the current session (client-generated or from history). */
   currentThreadId: string;
@@ -54,6 +61,7 @@ export function useChatStream(
   const threadIdRef = useRef<string>(newThreadId());
   const onFirstMessageRef = useRef(opts.onFirstMessage);
   onFirstMessageRef.current = opts.onFirstMessage;
+  const pendingConfirmationRef = useRef<{ toolName: string; draft: string } | null>(null);
 
   // Expose a stable read of the current thread ID.
   const [currentThreadId, setCurrentThreadId] = useState(threadIdRef.current);
@@ -70,12 +78,50 @@ export function useChatStream(
       const data = JSON.parse(event.data as string) as {
         type: string;
         message?: string;
+        tool_name?: string;
+        draft?: string;
       };
+      const toolName = data.tool_name;
+      const draft = data.draft;
 
       if (data.type === "status") {
         setIsLoading(true);
+      } else if (
+        data.type === "confirmation_required" &&
+        typeof toolName === "string" &&
+        typeof draft === "string"
+      ) {
+        pendingConfirmationRef.current = {
+          toolName,
+          draft,
+        };
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `${Date.now()}-assistant-confirm`,
+            role: "assistant",
+            content: `Draft ready for ${toolName}. Confirm, give edit instructions, or cancel.`,
+            timestamp: new Date(),
+            confirmation: {
+              toolName,
+              draft,
+            },
+          },
+        ]);
       } else if (data.type === "final" && data.message) {
         setIsLoading(false);
+        if (
+          pendingConfirmationRef.current &&
+          data.message.toLowerCase().includes("sent successfully")
+        ) {
+          pendingConfirmationRef.current = null;
+        }
+        if (
+          pendingConfirmationRef.current &&
+          data.message.toLowerCase().includes("did not send")
+        ) {
+          pendingConfirmationRef.current = null;
+        }
         setMessages((prev) => [
           ...prev,
           {
@@ -154,7 +200,25 @@ export function useChatStream(
     [input, isLoading, userId, connect],
   );
 
-  const clearMessages = useCallback(() => setMessages([]), []);
+  const clearMessages = useCallback(() => {
+    pendingConfirmationRef.current = null;
+    setMessages([]);
+  }, []);
+
+  const confirmPending = useCallback(() => {
+    sendMessage("confirm");
+  }, [sendMessage]);
+
+  const cancelPending = useCallback(() => {
+    sendMessage("cancel");
+  }, [sendMessage]);
+
+  const editPendingDraft = useCallback(
+    (instruction: string) => {
+      sendMessage(instruction);
+    },
+    [sendMessage],
+  );
 
   const resetSession = useCallback(
     (nextThreadId?: string | null, initialMessages?: Message[]) => {
@@ -166,6 +230,7 @@ export function useChatStream(
       if (reconnectRef.current) clearTimeout(reconnectRef.current);
       wsRef.current?.close();
       setMessages(initialMessages ?? []);
+      pendingConfirmationRef.current = null;
       setIsLoading(false);
       connect();
     },
@@ -179,6 +244,9 @@ export function useChatStream(
     input,
     setInput,
     sendMessage,
+    confirmPending,
+    cancelPending,
+    editPendingDraft,
     clearMessages,
     currentThreadId,
     resetSession,

@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import React, { useState, useEffect, useRef } from "react";
+import { motion, useInView } from "framer-motion";
 import { CheckCircle2, Sparkles, Plug, MessageSquare, Rocket } from "lucide-react";
 
 const STEPS = [
@@ -34,10 +34,15 @@ const STEPS = [
 type Status = "pending" | "active" | "completed";
 
 export function Timeline() {
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: true, margin: "-100px" });
+  
   const [statuses, setStatuses] = useState<Status[]>(["active", "pending", "pending"]);
   const [done, setDone] = useState(false);
 
   useEffect(() => {
+    if (!isInView) return;
+
     const t1 = setTimeout(() => {
       setStatuses(["completed", "active", "pending"]);
     }, 2200);
@@ -56,13 +61,13 @@ export function Timeline() {
       clearTimeout(t2);
       clearTimeout(t3);
     };
-  }, []);
+  }, [isInView]);
 
   const activeIdx = statuses.findIndex((s) => s === "active");
   const lineProgress = done ? 100 : activeIdx <= 0 ? 0 : (activeIdx / (STEPS.length - 1)) * 100;
 
   return (
-    <section className="w-full bg-black py-24 px-6">
+    <section ref={ref} className="w-full bg-black py-24 px-6">
       {/* Header */}
       <div className="max-w-5xl mx-auto text-center mb-20">
         <p className="text-indigo-400 text-sm font-semibold uppercase tracking-widest mb-3">

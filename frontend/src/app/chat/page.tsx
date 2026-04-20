@@ -100,6 +100,8 @@ function ChatInterface({ userId }: { userId: string }) {
     input,
     setInput,
     sendMessage,
+    confirmPending,
+    cancelPending,
     clearMessages,
     currentThreadId,
     resetSession,
@@ -108,6 +110,10 @@ function ChatInterface({ userId }: { userId: string }) {
   const handleSuggestion = (text: string) => {
     setInput(text);
     sendMessage(text);
+  };
+
+  const handleEditDraft = () => {
+    setInput("Update the draft: ");
   };
 
   const handleSelectThread = async (threadId: string) => {
@@ -266,7 +272,14 @@ function ChatInterface({ userId }: { userId: string }) {
           </Button>
         </header>
 
-        <ChatWindow messages={messages} isLoading={isLoading} onSuggestion={handleSuggestion} />
+        <ChatWindow
+          messages={messages}
+          isLoading={isLoading}
+          onSuggestion={handleSuggestion}
+          onConfirmDraft={confirmPending}
+          onCancelDraft={cancelPending}
+          onEditDraft={handleEditDraft}
+        />
 
         <InputBar
           value={input}

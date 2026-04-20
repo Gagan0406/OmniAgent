@@ -10,6 +10,9 @@ import { cn } from "@/lib/utils";
 interface MessageBubbleProps {
   message: Message;
   index: number;
+  onConfirmDraft?: () => void;
+  onCancelDraft?: () => void;
+  onEditDraft?: () => void;
 }
 
 /**
@@ -17,7 +20,13 @@ interface MessageBubbleProps {
  * AI messages render full markdown (GFM) with custom dark-theme components.
  * User messages are plain text in an indigo gradient bubble.
  */
-export function MessageBubble({ message, index }: MessageBubbleProps) {
+export function MessageBubble({
+  message,
+  index,
+  onConfirmDraft,
+  onCancelDraft,
+  onEditDraft,
+}: MessageBubbleProps) {
   const isUser = message.role === "user";
 
   return (
@@ -60,7 +69,8 @@ export function MessageBubble({ message, index }: MessageBubbleProps) {
           // User messages: plain text, preserve newlines
           <span className="whitespace-pre-wrap">{message.content}</span>
         ) : (
-          // AI messages: full markdown rendering
+          <>
+          {/* AI messages: full markdown rendering */}
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
             components={{
@@ -161,6 +171,40 @@ export function MessageBubble({ message, index }: MessageBubbleProps) {
           >
             {message.content}
           </ReactMarkdown>
+          {message.confirmation ? (
+            <div className="mt-3 rounded-xl border border-white/10 bg-black/30 p-3">
+              <p className="mb-2 text-xs text-slate-400">
+                Draft for {message.confirmation.toolName}
+              </p>
+              <p className="mb-3 whitespace-pre-wrap text-sm text-slate-200">
+                {message.confirmation.draft}
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={onConfirmDraft}
+                  className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-500"
+                >
+                  Confirm
+                </button>
+                <button
+                  type="button"
+                  onClick={onCancelDraft}
+                  className="rounded-md bg-rose-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-rose-500"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={onEditDraft}
+                  className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-500"
+                >
+                  Edit with Instruction
+                </button>
+              </div>
+            </div>
+          ) : null}
+          </>
         )}
       </div>
     </motion.div>
