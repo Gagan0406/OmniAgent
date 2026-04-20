@@ -21,7 +21,13 @@ class Settings(BaseSettings):
     app_env: str = "development"
     app_name: str = "Omni Copilot API"
     api_v1_prefix: str = "/api"
-    cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
+    cors_origins: list[str] = Field(
+        default_factory=lambda: [
+            "http://localhost:3000",
+            "https://frontend-five-ebon-37.vercel.app",
+            "https://frontend-5bc45j3w6-gagan0406s-projects.vercel.app",
+        ]
+    )
 
     database_url: str = "sqlite+aiosqlite:///./omni_copilot.db"
     openrouter_api_key: str | None = None
